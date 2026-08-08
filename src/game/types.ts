@@ -10,6 +10,60 @@ export type BidChoice = "small" | "standard" | "strong" | "exit";
 export type IntelAction = "authenticity" | "estimate" | "buyer" | "clue";
 export type ItemAction = "sell" | "appraise" | "hold" | "pawn" | "redeem";
 
+/** 经营模式：自由经营（无尽） / 竞速挑战（固定场次） */
+export type GameMode = "endless" | "sprint";
+
+/** 随机事件类型：开场事件 / 结算事件 */
+export type RoundEventKind = "opening" | "settlement";
+
+/** 一场拍卖中的随机事件（风味 + 结果文案，效果由引擎按 id 应用） */
+export interface RoundEvent {
+  id: string;
+  kind: RoundEventKind;
+  title: string;
+  text: string;
+  outcome?: string; // 结算/开场应用后展示的结果文案
+}
+
+/** 委托类型 */
+export type CommissionKind =
+  | "win_any" // 本场至少拍下一件
+  | "buy_category" // 拍下指定类别至少一件
+  | "avoid_fake" // 本场未让赝品进入库存
+  | "appraise_any" // 本场至少鉴定一件
+  | "profit_target" // 本场卖出/特殊出售合计利润达到目标
+  | "low_buy"; // 以低于估价中位数一定比例拍下一件
+
+export interface Commission {
+  id: string;
+  kind: CommissionKind;
+  title: string;
+  desc: string;
+  reward: number; // 完成奖励（现金）
+  rep: number; // 完成奖励（声望）
+  targetCategory?: Category;
+  targetValue?: number; // profit_target 的利润目标 / low_buy 的比例阈值（0~1）
+  result?: "完成" | "未完成";
+}
+
+/** 本场累计的进度数据，用于结算时判定委托与事件 */
+export interface RoundStats {
+  wonCount: number; // 玩家本场拍下件数
+  wonCategories: Category[];
+  fakesWon: number; // 玩家拍下且为赝品的件数
+  lowBuys: number; // 以低于中位数 targetRatio 拍下的件数
+  appraisals: number; // 本场鉴定次数
+  realizedProfit: number; // 本场卖出 + 特殊出售实现的利润
+}
+
+/** 本场临时修正（随机事件/声望产生的倍率），每场开始时重置 */
+export interface RoundModifiers {
+  interestMult?: number; // 债务利息倍率（默认 1）
+  storageMult?: number; // 仓储费倍率（默认 1）
+  specialBuyerGuaranteed?: boolean; // 结算必现特殊买家
+  bidderBudgetMult?: number; // 买家预算倍率（默认 1）
+}
+
 /** 公开线索。signal/strength 对玩家隐藏，仅引擎使用。 */
 export interface Clue {
   id: string;
@@ -137,10 +191,20 @@ export interface GameState {
   streak: number; // 连续盈利场次
   lastRoundProfit: number | null;
   milestones: string[];
+  // 模式与声望
+  mode: GameMode;
+  modeRound: number; // 当前模式下的场次（1-based，sprint 到上限强制结束）
+  reputation: number; // 声望值
   // 市场
   market: Record<Category, number>;
   news: NewsEvent[];
   specialBuyer: SpecialBuyer | null;
+  // 随机事件与委托
+  openingEvent: RoundEvent | null;
+  settlementEvent: RoundEvent | null;
+  commission: Commission | null;
+  roundStats: RoundStats;
+  roundModifiers: RoundModifiers | null;
   // 本轮进行中
   itemsThisRound: Item[];
   itemIndex: number; // 0-based，指向当前拍品
@@ -168,6 +232,6 @@ export type RunResult = {
   bestProfit: number;
   setsCompleted: number;
   endReason: string;
+  mode: GameMode;
+  score: number; // 用于排行榜：endless→峰值净资产，sprint→最终净资产
 };
-
-

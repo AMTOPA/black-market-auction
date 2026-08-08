@@ -89,7 +89,34 @@ export function sanitizeState(state: GameState): GameState {
   const bidders: AIBidder[] = dedupeBy(state.bidders ?? []);
   const deal = state.deal ? { ...state.deal, item: rekeyClues(state.deal.item) } : state.deal;
 
-  return { ...state, itemsThisRound, inventory, news, biddingLog, bidders, deal };
+  // 多元化扩展：旧存档缺省字段补默认值
+  const oldStats = state.roundStats as Partial<GameState["roundStats"]> | undefined;
+  const roundStats: GameState["roundStats"] = {
+    wonCount: typeof oldStats?.wonCount === "number" ? oldStats.wonCount : 0,
+    wonCategories: Array.isArray(oldStats?.wonCategories) ? oldStats.wonCategories : [],
+    fakesWon: typeof oldStats?.fakesWon === "number" ? oldStats.fakesWon : 0,
+    lowBuys: typeof oldStats?.lowBuys === "number" ? oldStats.lowBuys : 0,
+    appraisals: typeof oldStats?.appraisals === "number" ? oldStats.appraisals : 0,
+    realizedProfit: typeof oldStats?.realizedProfit === "number" ? oldStats.realizedProfit : 0,
+  };
+
+  return {
+    ...state,
+    itemsThisRound,
+    inventory,
+    news,
+    biddingLog,
+    bidders,
+    deal,
+    mode: state.mode ?? "endless",
+    modeRound: typeof state.modeRound === "number" ? state.modeRound : 1,
+    reputation: typeof state.reputation === "number" ? state.reputation : 0,
+    openingEvent: state.openingEvent ?? null,
+    settlementEvent: state.settlementEvent ?? null,
+    commission: state.commission ?? null,
+    roundStats,
+    roundModifiers: state.roundModifiers ?? null,
+  };
 }
 
 export function loadGame(): GameState | null {

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { formatMoneyCn } from "@/game/format";
 import { apiLeaderboard, type AuthUser, type LeaderboardData, type LeaderboardRow } from "@/lib/api";
+import type { GameMode } from "@/game/types";
 
 import { CrownIcon, RankMedal } from "./ItemIcon";
 
@@ -16,15 +17,17 @@ export interface LeaderboardScreenProps {
 const PODIUM_ORDER = [2, 1, 3];
 
 export default function LeaderboardScreen({ user, onBack }: LeaderboardScreenProps) {
+  type ModeFilter = "all" | GameMode;
+  const [mode, setMode] = useState<ModeFilter>("all");
   const [data, setData] = useState<LeaderboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const loadLeaderboard = useCallback(async () => {
+  const loadLeaderboard = useCallback(async (filter: ModeFilter) => {
     setLoading(true);
     setError("");
     try {
-      setData(await apiLeaderboard(50));
+      setData(await apiLeaderboard(50, filter === "all" ? undefined : filter));
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "榜单暂时被封存，请稍后再试。");
     } finally {
@@ -32,9 +35,17 @@ export default function LeaderboardScreen({ user, onBack }: LeaderboardScreenPro
     }
   }, []);
 
+  const switchMode = useCallback(
+    (next: ModeFilter) => {
+      setMode(next);
+      void loadLeaderboard(next);
+    },
+    [loadLeaderboard],
+  );
+
   useEffect(() => {
-    void loadLeaderboard();
-  }, [loadLeaderboard]);
+    void loadLeaderboard(mode);
+  }, [loadLeaderboard, mode]);
 
   const isMe = (row: LeaderboardRow) => Boolean(user && row.username === user.username);
 
@@ -53,13 +64,25 @@ export default function LeaderboardScreen({ user, onBack }: LeaderboardScreenPro
         <p className="logo-sub">筹码会说出一切</p>
       </div>
 
+      <div className="mode-tabs fade-in-up" role="group" aria-label="排行榜模式筛选" style={{ marginTop: 8 }}>
+        <button type="button" className={`mode-tab ${mode === "all" ? "active" : ""}`} onClick={() => switchMode("all")}>
+          全部
+        </button>
+        <button type="button" className={`mode-tab ${mode === "endless" ? "active" : ""}`} onClick={() => switchMode("endless")}>
+          自由经营
+        </button>
+        <button type="button" className={`mode-tab ${mode === "sprint" ? "active" : ""}`} onClick={() => switchMode("sprint")}>
+          竞速挑战
+        </button>
+      </div>
+
       {data?.me && (
         <div className="claim-card fade-in-up">
           <div className="claim-title">◆ 你的暗市记录</div>
           <div className="grid grid-4">
             <div className="stat">
               <div className="stat-value gold num">¥{formatMoneyCn(data.me.peak_net)}</div>
-              <div className="stat-label">最高净资产</div>
+              <div className="stat-label">{mode === "sprint" ? "最佳最终净资产" : "最高净资产"}</div>
             </div>
             <div className="stat">
               <div className="stat-value violet num">Lv.{data.me.level}</div>
@@ -89,6 +112,11 @@ export default function LeaderboardScreen({ user, onBack }: LeaderboardScreenPro
                   {row.username}
                 </div>
                 <div className="podium-net num">¥{formatMoneyCn(row.peak_net)}</div>
+                {mode === "all" ? (
+                  <div className={`mode-badge ${row.mode === "sprint" ? "sprint" : "endless"}`}>
+                    {row.mode === "sprint" ? "竞速" : "自由"}
+                  </div>
+                ) : null}
                 <div className="podium-plate">{row.rank}</div>
               </div>
             ))}
@@ -105,7 +133,7 @@ export default function LeaderboardScreen({ user, onBack }: LeaderboardScreenPro
             <p className="error-text" role="alert">
               {error}
             </p>
-            <button className="btn btn-sm" type="button" onClick={() => void loadLeaderboard()}>
+            <button className="btn btn-sm" type="button" onClick={() => void loadLeaderboard(mode)}>
               重新查阅
             </button>
           </div>
@@ -116,7 +144,7 @@ export default function LeaderboardScreen({ user, onBack }: LeaderboardScreenPro
                 <th scope="col">席位</th>
                 <th scope="col">买家代号</th>
                 <th scope="col" className="right">
-                  净资产峰值
+                  {mode === "sprint" ? "最终净资产" : "净资产峰值"}
                 </th>
                 <th scope="col" className="right">
                   等级
@@ -137,6 +165,11 @@ export default function LeaderboardScreen({ user, onBack }: LeaderboardScreenPro
                   </td>
                   <td className="lb-name">
                     {row.username} {isMe(row) && <span className="tag tag-gold">你</span>}
+                    {mode === "all" ? (
+                      <span className={`mode-badge ${row.mode === "sprint" ? "sprint" : "endless"}`} style={{ marginLeft: 6 }}>
+                        {row.mode === "sprint" ? "竞速" : "自由"}
+                      </span>
+                    ) : null}
                   </td>
                   <td className="right gold num">¥{formatMoneyCn(row.peak_net)}</td>
                   <td className="right violet num">Lv.{row.level}</td>

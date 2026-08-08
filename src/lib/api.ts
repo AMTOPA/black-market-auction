@@ -1,7 +1,10 @@
-﻿export type AuthUser = { id: number; username: string };
+import type { GameMode } from "@/game/types";
+
+export type AuthUser = { id: number; username: string };
 export type LeaderboardRow = {
   rank: number;
   username: string;
+  mode: GameMode;
   peak_net: number;
   level: number;
   auctions: number;
@@ -74,13 +77,15 @@ export async function apiLogout(): Promise<void> {
   await apiFetch<{ ok: true }>("/api/auth/logout", { method: "POST" });
 }
 
-export async function apiLeaderboard(limit = 50): Promise<LeaderboardData> {
+export async function apiLeaderboard(limit = 50, mode?: GameMode): Promise<LeaderboardData> {
   const params = new URLSearchParams({ limit: String(limit) });
+  if (mode) params.set("mode", mode);
   return apiFetch(`/api/leaderboard?${params.toString()}`);
 }
 
 export async function apiSubmitScore(r: {
-  peakNet: number;
+  mode: GameMode;
+  score: number;
   level: number;
   auctions: number;
   bestProfit: number;
@@ -90,7 +95,13 @@ export async function apiSubmitScore(r: {
 }> {
   return apiFetch("/api/leaderboard", {
     method: "POST",
-    body: JSON.stringify(r),
+    body: JSON.stringify({
+      mode: r.mode,
+      score: r.score,
+      level: r.level,
+      auctions: r.auctions,
+      bestProfit: r.bestProfit,
+    }),
   });
 }
 

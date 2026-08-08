@@ -1,4 +1,4 @@
-﻿// ============ 黑市拍卖行 · 游戏引擎（纯逻辑，无 DOM 依赖） ============
+// ============ 黑市拍卖行 · 游戏引擎（纯逻辑，无 DOM 依赖） ============
 import { CONFIG } from "./config";
 import {
   generateAuctionItems,
@@ -8,9 +8,19 @@ import {
   aiPrepareItem,
   intelReveal,
 } from "./generator";
-import { formatMoney } from "./format";
+import {
+  rollOpeningTemplate,
+  rollSettlementTemplate,
+  rollCommission,
+  templateToEvent,
+  type EventEffect,
+  type RandomEventTemplate,
+} from "./events";
+import { chance, pick } from "./rng";
+import { formatMoney, formatMult } from "./format";
 import type {
   GameState,
+  GameMode,
   Item,
   AIBidder,
   BidChoice,
@@ -19,6 +29,7 @@ import type {
   LogEntry,
   Category,
   DealResult,
+  RunResult,
 } from "./types";
 
 let uid = 0;
@@ -26,6 +37,15 @@ export const nextId = () => `e${Date.now().toString(36)}${(uid++).toString(36)}`
 
 const round100 = (n: number) => Math.max(0, Math.round(n / 100) * 100);
 const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n));
+
+const EMPTY_STATS = () => ({
+  wonCount: 0,
+  wonCategories: [] as Category[],
+  fakesWon: 0,
+  lowBuys: 0,
+  appraisals: 0,
+  realizedProfit: 0,
+});
 
 // ---------------- 等级与费用 ----------------
 
@@ -78,9 +98,58 @@ export function canBidAt(state: GameState, price: number): boolean {
   return state.cash + availableCredit(state) >= price;
 }
 
+// ---------------- 随机事件应用 ----------------
+
+/** 按事件模板应用效果，返回新状态与结果文案 */
+function applyEvent(state: GameState, template: RandomEventTemplate): { state: GameState; outcome: string } {
+  const effect: EventEffect | undefined = template.effect;
+  if (!effect) return { state, outcome: "风平浪静，无事发生。" };
+  const s: GameState = { ...state, market: { ...state.market }, roundModifiers: state.roundModifiers ? { ...state.roundModifiers } : null };
+  switch (effect.kind) {
+    case "cash": {
+      const amount = round100(s.cash * (effect.value ?? 0.1));
+      s.cash += amount;
+      return { state: s, outcome: `现金 +${formatMoney(amount)}` };
+    }
+    case "debt": {
+      const amount = round100(s.debt * (effect.value ?? 0.1));
+      s.debt += amount;
+      return { state: s, outcome: `债务 +${formatMoney(amount)}` };
+    }
+    case "interestMult": {
+      const mult = effect.value ?? 1;
+      s.roundModifiers = { ...(s.roundModifiers ?? {}), interestMult: (s.roundModifiers?.interestMult ?? 1) * mult };
+      return { state: s, outcome: `债务利息 ×${formatMult(mult)}` };
+    }
+    case "storageMult": {
+      const mult = effect.value ?? 1;
+      s.roundModifiers = { ...(s.roundModifiers ?? {}), storageMult: (s.roundModifiers?.storageMult ?? 1) * mult };
+      return { state: s, outcome: `仓储费 ×${formatMult(mult)}` };
+    }
+    case "specialGuaranteed": {
+      s.roundModifiers = { ...(s.roundModifiers ?? {}), specialBuyerGuaranteed: true };
+      return { state: s, outcome: "特殊买家必现" };
+    }
+    case "bidderBudget": {
+      const mult = effect.value ?? 1;
+      s.roundModifiers = { ...(s.roundModifiers ?? {}), bidderBudgetMult: (s.roundModifiers?.bidderBudgetMult ?? 1) * mult };
+      return { state: s, outcome: `买家预算 ×${formatMult(mult)}` };
+    }
+    case "categoryBoom": {
+      const cat = effect.category ?? pick(CONFIG.categories as unknown as Category[]);
+      const mult = effect.value ?? 1.15;
+      s.market = { ...s.market, [cat]: clamp((s.market[cat] ?? 1) * mult, CONFIG.marketMin, CONFIG.marketMax) };
+      const applied = s.market[cat] ?? 1;
+      return { state: s, outcome: `「${cat}」行情 ${formatMult(applied)}` };
+    }
+    default:
+      return { state: s, outcome: "风平浪静，无事发生。" };
+  }
+}
+
 // ---------------- 新游戏 / 开一场 ----------------
 
-export function newGame(): GameState {
+export function newGame(options?: { mode?: GameMode }): GameState {
   const market = {} as Record<Category, number>;
   for (const c of CONFIG.categories) market[c] = 1;
   return {
@@ -97,9 +166,17 @@ export function newGame(): GameState {
     streak: 0,
     lastRoundProfit: null,
     milestones: [],
+    mode: options?.mode ?? "endless",
+    modeRound: 0,
+    reputation: 0,
     market,
     news: [],
     specialBuyer: null,
+    openingEvent: null,
+    settlementEvent: null,
+    commission: null,
+    roundStats: EMPTY_STATS(),
+    roundModifiers: null,
     itemsThisRound: [],
     itemIndex: 0,
     phase: "bidding",
@@ -120,7 +197,7 @@ export function newGame(): GameState {
 function driftMarket(state: GameState): Record<Category, number> {
   const next = { ...state.market };
   for (const c of CONFIG.categories) {
-    let drift = (Math.random() * 2 - 0.9) * CONFIG.marketDrift; // ?????????
+    let drift = (Math.random() * 2 - 0.9) * CONFIG.marketDrift;
     for (const n of state.news) {
       const hit = n.affects.find((a) => a.category === c);
       if (hit && Math.random() < CONFIG.newsBias) drift = hit.dir * Math.abs(drift) * 1.6;
@@ -131,14 +208,18 @@ function driftMarket(state: GameState): Record<Category, number> {
   return next;
 }
 
-/** 开新一场：交入场费 → 市场漂移/新闻 → 生成拍品与买家 → 开始第一件 */
+/** 开新一场：交入场费 → 市场漂移/新闻 → 开场事件 → 生成拍品与买家 → 开始第一件 */
 export function beginRound(state: GameState): GameState {
-  const fee = entryFee(state.level);
+  const rep = state.reputation ?? 0;
+  const feeDiscount = rep >= CONFIG.repDiscountAt ? CONFIG.repDiscountRate : 0;
+  const fee = round100(entryFee(state.level) * (1 - feeDiscount));
+  const modeRound = (state.modeRound ?? 0) + 1;
   const s: GameState = {
     ...state,
     cash: state.cash - fee,
     intel: Math.min(CONFIG.intelCarryMax, state.intel) + CONFIG.intelPerAuction,
     auctionNumber: state.auctionNumber + 1,
+    modeRound,
     itemsThisRound: [],
     itemIndex: 0,
     phase: "bidding",
@@ -146,15 +227,30 @@ export function beginRound(state: GameState): GameState {
     specialBuyer: null,
     totals: null,
     deal: null,
+    roundStats: EMPTY_STATS(),
+    roundModifiers: null,
+    openingEvent: null,
+    settlementEvent: null,
+    commission: chance(CONFIG.commissionChance) ? rollCommission(state.level, state.peakNet) : null,
   };
   s.news = pickNews();
   s.market = driftMarket(s);
+  const openingTemplate = rollOpeningTemplate();
+  const opening = applyEvent(s, openingTemplate);
+  s.market = opening.state.market;
+  s.roundModifiers = opening.state.roundModifiers;
+  s.cash = opening.state.cash;
+  s.debt = opening.state.debt;
+  s.openingEvent = { ...templateToEvent(openingTemplate), outcome: opening.outcome };
+  s.biddingLog.push({ id: nextId(), text: `【风声】${s.openingEvent.title}：${s.openingEvent.text}（${s.openingEvent.outcome}）`, kind: "intel" });
   s.itemsThisRound = generateAuctionItems(s.level, s.market, CONFIG.itemsPerAuction, s.auctionNumber);
-  s.bidders = generateAIBidders(s.level);
+  s.bidders = generateAIBidders(s.level, s.roundModifiers?.bidderBudgetMult ?? 1);
   s.biddingLog.push({ id: nextId(), text: `入场费 ${formatMoney(fee)} 已支付，拍卖会 #${s.auctionNumber} 开始`, kind: "system" });
+  if (feeDiscount > 0) {
+    s.biddingLog.push({ id: nextId(), text: `声望特权：入场费 8 折，省下 ${formatMoney(round100(entryFee(state.level) * feeDiscount))}`, kind: "system" });
+  }
   return startItemAuction(s);
 }
-
 // ---------------- 单件拍品竞价 ----------------
 
 function startItemAuction(state: GameState): GameState {
@@ -291,6 +387,14 @@ function resolveDeal(state: GameState): GameState {
     s.cash = s.cash - paid;
     s.debt = s.debt + borrowed;
     s.inventory = [...s.inventory, { ...item, acquiredRound: s.auctionNumber, acquiredLevel: s.level }];
+    const stats = s.roundStats ?? EMPTY_STATS();
+    s.roundStats = {
+      ...stats,
+      wonCount: stats.wonCount + 1,
+      wonCategories: [...stats.wonCategories, item.category],
+      fakesWon: stats.fakesWon + (item.authenticity === "赝品" ? 1 : 0),
+      lowBuys: stats.lowBuys + (price <= item.estimateMedian * 0.8 ? 1 : 0),
+    };
     wonByName = "你";
     s.biddingLog.push({ id: nextId(), text: `成交！你以 ${formatMoney(price)} 拍下 ${item.name}`, kind: "deal" });
   } else {
@@ -329,12 +433,21 @@ export function playerIntel(state: GameState, action: IntelAction): GameState {
   s.biddingLog.push({ id: nextId(), text: `【情报】${text}`, kind: "intel" });
   return s;
 }
-
 // ---------------- 结算 ----------------
 
 function enterSettlement(state: GameState): GameState {
-  const s: GameState = { ...state, phase: "settlement", biddingLog: [...state.biddingLog], totals: null, currentBidder: null };
-  s.specialBuyer = rollSpecialBuyer();
+  const s0: GameState = { ...state, phase: "settlement", biddingLog: [...state.biddingLog], totals: null, currentBidder: null };
+  // 结算随机事件（现金/债务/行情立即生效，倍率作用于本场结转）
+  const template = rollSettlementTemplate();
+  const applied = applyEvent(s0, template);
+  let s = applied.state;
+  s.biddingLog = [...s.biddingLog];
+  s.settlementEvent = { ...templateToEvent(template), outcome: applied.outcome };
+  s.biddingLog.push({ id: nextId(), text: `【场后风声】${s.settlementEvent.title}：${s.settlementEvent.text}（${s.settlementEvent.outcome}）`, kind: "intel" });
+  // 特殊买家：声望达标或事件保证必现
+  const rep = s.reputation ?? 0;
+  const guaranteed = Boolean(s.roundModifiers?.specialBuyerGuaranteed) || rep >= CONFIG.repSpecialAt;
+  s.specialBuyer = rollSpecialBuyer(guaranteed);
   s.biddingLog.push({ id: nextId(), text: "拍卖会结束，进入结算", kind: "system" });
   return s;
 }
@@ -356,6 +469,7 @@ export function settlementAction(state: GameState, itemId: string, action: ItemA
     }
     s.cash -= cost;
     s.inventory[idx] = { ...item, appraised: true };
+    s.roundStats = { ...(s.roundStats ?? EMPTY_STATS()), appraisals: (s.roundStats?.appraisals ?? 0) + 1 };
     s.biddingLog.push({ id: nextId(), text: `已鉴定《${item.name}》：${item.authenticity}，真实价值 ${formatMoney(item.trueValue)}（鉴定费 ${formatMoney(cost)}）`, kind: "info" });
     return s;
   }
@@ -398,6 +512,10 @@ export function settlementAction(state: GameState, itemId: string, action: ItemA
       s.inventory = s.inventory.filter((it) => !ids.has(it.id));
       s.cash += price;
       s.setsCompleted += 1;
+      const costBase = setParts.reduce((sum, it) => sum + (it.pawned ? it.pawned.principal : 0), 0);
+      const profit = Math.round(price - costBase);
+      if (profit > s.bestProfit) s.bestProfit = profit;
+      s.roundStats = { ...(s.roundStats ?? EMPTY_STATS()), realizedProfit: (s.roundStats?.realizedProfit ?? 0) + profit };
       s.biddingLog.push({ id: nextId(), text: `成套出售《${setInfo.setName}》（${setParts.length}件）！收入 ${formatMoney(price)}`, kind: "deal" });
       return s;
     }
@@ -410,6 +528,7 @@ export function settlementAction(state: GameState, itemId: string, action: ItemA
     s.biddingLog.push({ id: nextId(), text: `《${item.name}》售出 ${formatMoney(price)}${item.appraised ? "" : "（未鉴定，买家压价）"}`, kind: "deal" });
     const profit = Math.round(price - (item.pawned ? item.pawned.principal : 0));
     if (profit > s.bestProfit) s.bestProfit = profit;
+    s.roundStats = { ...(s.roundStats ?? EMPTY_STATS()), realizedProfit: (s.roundStats?.realizedProfit ?? 0) + profit };
     return s;
   }
 
@@ -429,19 +548,61 @@ export function acceptSpecialBuyer(state: GameState, itemId: string): GameState 
   s.inventory = [...s.inventory];
   const profit = Math.round(price - (item.pawned ? item.pawned.principal : 0));
   if (profit > s.bestProfit) s.bestProfit = profit;
+  s.roundStats = { ...(s.roundStats ?? EMPTY_STATS()), realizedProfit: (s.roundStats?.realizedProfit ?? 0) + profit };
   s.biddingLog.push({ id: nextId(), text: `${state.specialBuyer.name} 高价收购《${item.name}》：${formatMoney(price)}！`, kind: "deal" });
   return s;
 }
 
-/** 结算完成 → 下一场（含仓储费、利息、抵押到期、破产检查） */
+/** 委托完成判定（纯函数，供结算界面实时预览与引擎结算共用） */
+export function judgeCommission(state: GameState): boolean {
+  const c = state.commission;
+  if (!c) return false;
+  const stats = state.roundStats ?? EMPTY_STATS();
+  switch (c.kind) {
+    case "win_any":
+      return stats.wonCount >= 1;
+    case "buy_category":
+      return stats.wonCategories.includes(c.targetCategory!);
+    case "avoid_fake":
+      return stats.wonCount >= 1 && stats.fakesWon === 0;
+    case "appraise_any":
+      return stats.appraisals >= 1;
+    case "profit_target":
+      return stats.realizedProfit >= (c.targetValue ?? 0);
+    case "low_buy":
+      return stats.lowBuys >= 1;
+    default:
+      return false;
+  }
+}
+
+/** 结算完成 → 下一场（含委托奖励、仓储费、利息、抵押到期、破产检查、竞速终局） */
 export function nextRound(state: GameState): GameState {
   if (state.phase !== "settlement") return state;
   let s: GameState = { ...state, biddingLog: [...state.biddingLog], inventory: [...state.inventory], phase: "bidding" };
 
+  // 1) 委托判定与奖励
+  const commission = state.commission;
+  if (commission) {
+    const done = judgeCommission(state);
+    if (done) {
+      s.cash += commission.reward;
+      s.reputation = Math.min(CONFIG.repCap, (s.reputation ?? 0) + commission.rep);
+      s.commission = { ...commission, result: "完成" };
+      s.biddingLog.push({ id: nextId(), text: `委托完成：「${commission.title}」奖励 ${formatMoney(commission.reward)}，声望 +${commission.rep}`, kind: "deal" });
+    } else {
+      s.commission = { ...commission, result: "未完成" };
+      s.biddingLog.push({ id: nextId(), text: `委托未完成：「${commission.title}」`, kind: "system" });
+    }
+  }
+
+  // 2) 仓储费（受事件/倍率修正）与抵押到期
+  const mods = state.roundModifiers;
+  const storageMult = mods?.storageMult ?? 1;
   let storage = 0;
   s.inventory = s.inventory.map((it) => {
     if (it.pawned) return it;
-    const fee = Math.round(conservativeValue(it) * CONFIG.storageFeeRate);
+    const fee = Math.round(conservativeValue(it) * CONFIG.storageFeeRate * storageMult);
     storage += fee;
     return it;
   });
@@ -458,13 +619,31 @@ export function nextRound(state: GameState): GameState {
     })
     .filter((it): it is Item => it !== null);
 
-  const interest = Math.round(s.debt * CONFIG.interestRate);
+  const interestMult = mods?.interestMult ?? 1;
+  const interest = Math.round(s.debt * CONFIG.interestRate * interestMult);
   const fee = storage + interest;
   const pay = Math.min(s.cash, fee);
   s.cash -= pay;
   s.debt += fee - pay;
   if (storage > 0 || interest > 0) s.biddingLog.push({ id: nextId(), text: `仓储费 ${formatMoney(storage)}，债务利息 ${formatMoney(interest)}`, kind: "system" });
 
+  // 3) 净资产峰值 / 等级
+  const net = computeNetAssets(s);
+  const peak = Math.max(state.peakNet, net);
+  const newLevel = computeLevel(peak);
+  if (newLevel > s.level) {
+    s.milestones = [...s.milestones, `晋升到 ${levelName(newLevel)}（净资产峰值 ${formatMoney(peak)}）`];
+    s.biddingLog.push({ id: nextId(), text: `🎉 市场升级：进入「${levelName(newLevel)}」！`, kind: "deal" });
+  }
+  s.peakNet = peak;
+  s.level = newLevel;
+
+  // 4) 竞速模式：完成固定场次 → 直接终局（不再支付下一场入场费）
+  if (s.mode === "sprint" && (s.modeRound ?? 0) >= CONFIG.sprintRounds) {
+    return { ...s, phase: "runEnd", endReason: `完成竞速挑战 · 第${s.modeRound}场` };
+  }
+
+  // 5) 强制清算
   const feeNext = entryFee(s.level);
   let forced = false;
   if (s.cash + availableCredit(s) < feeNext) {
@@ -480,16 +659,7 @@ export function nextRound(state: GameState): GameState {
     s.inventory = s.inventory.filter((it) => keep.has(it.id));
   }
 
-  const net = computeNetAssets(s);
-  const peak = Math.max(state.peakNet, net);
-  const newLevel = computeLevel(peak);
-  if (newLevel > s.level) {
-    s.milestones = [...s.milestones, `晋升到 ${levelName(newLevel)}（净资产峰值 ${formatMoney(peak)}）`];
-    s.biddingLog.push({ id: nextId(), text: `🎉 市场升级：进入「${levelName(newLevel)}」！`, kind: "deal" });
-  }
-  s.peakNet = peak;
-  s.level = newLevel;
-
+  // 6) 能否继续
   const canEnter = s.cash + availableCredit(s) >= entryFee(newLevel);
   if (!canEnter) {
     return { ...s, phase: "runEnd", endReason: forced ? "强制清算后仍资不抵债，无法支付下一场入场费" : "无法支付下一场入场费" };
@@ -506,7 +676,7 @@ export function forceEndRun(state: GameState, reason: string): GameState {
   return { ...state, phase: "runEnd", endReason: reason };
 }
 
-export function buildRunResult(state: GameState): { peakNet: number; level: number; auctions: number; bestProfit: number; setsCompleted: number; endReason: string } {
+export function buildRunResult(state: GameState): RunResult {
   return {
     peakNet: state.peakNet,
     level: state.level,
@@ -514,6 +684,8 @@ export function buildRunResult(state: GameState): { peakNet: number; level: numb
     bestProfit: state.bestProfit,
     setsCompleted: state.setsCompleted,
     endReason: state.endReason ?? "主动结束",
+    mode: state.mode ?? "endless",
+    score: (state.mode ?? "endless") === "sprint" ? computeNetAssets(state) : state.peakNet,
   };
 }
 
@@ -521,4 +693,3 @@ export function buildRunResult(state: GameState): { peakNet: number; level: numb
 export function recentLog(state: GameState, n = 40): LogEntry[] {
   return state.biddingLog.slice(-n);
 }
-

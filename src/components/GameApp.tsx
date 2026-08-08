@@ -29,7 +29,7 @@ import {
   type AuthUser,
 } from "@/lib/api";
 import { initAudio, setMuted, isMuted, playClick, playBid, playCoin, playGavel, playIntel, playError } from "@/game/audio";
-import type { GameState, BidChoice, IntelAction, ItemAction } from "@/game/types";
+import type { GameState, GameMode, BidChoice, IntelAction, ItemAction } from "@/game/types";
 import HomeScreen from "./HomeScreen";
 import AuthModal from "./AuthModal";
 import LeaderboardScreen from "./LeaderboardScreen";
@@ -99,10 +99,10 @@ const dealKey = deal ? `${deal.item.id}:${deal.price}` : null;
     setMuted(m);
   };
 
-  const startNewRun = useCallback(() => {
+  const startNewRun = useCallback((mode: GameMode = "endless") => {
     playClick();
     clearSave();
-    setGame(beginRound(newGame()));
+    setGame(beginRound(newGame({ mode })));
     setSubmitted(false);
     setView("play");
   }, []);

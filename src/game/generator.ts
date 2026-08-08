@@ -155,7 +155,7 @@ export function generateAuctionItems(level: number, market: Record<Category, num
   return items;
 }
 
-export function generateAIBidders(level: number): AIBidder[] {
+export function generateAIBidders(level: number, budgetMult = 1): AIBidder[] {
   const kinds = pickN(Object.keys(AI_PROFILES) as AIKind[], CONFIG.numBidders);
   const range = CONFIG.valueRanges[levelIndex(level)];
   const mid = (range[0] + range[1]) / 2;
@@ -163,7 +163,7 @@ export function generateAIBidders(level: number): AIBidder[] {
   return kinds.map((kind) => {
     const profile = AI_PROFILES[kind];
     const [multLow, multHigh] = CONFIG.bidderBudgetMult[kind];
-    const budget = round100(mid * rand(multLow, multHigh) * rand(0.85, 1.15));
+    const budget = round100(mid * rand(multLow, multHigh) * rand(0.85, 1.15) * budgetMult);
 
     let preferred: Category[];
     if (kind === "富豪") {
@@ -204,8 +204,8 @@ export function pickNews(): NewsEvent[] {
   }));
 }
 
-export function rollSpecialBuyer(): SpecialBuyer | null {
-  if (!chance(CONFIG.specialBuyerChance)) return null;
+export function rollSpecialBuyer(force = false): SpecialBuyer | null {
+  if (!force && !chance(CONFIG.specialBuyerChance)) return null;
   const buyer = pick(SPECIAL_BUYERS);
   return {
     name: buyer.name,

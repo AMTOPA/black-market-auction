@@ -1,6 +1,7 @@
-﻿import { DatabaseSync } from "node:sqlite";
+import { DatabaseSync } from "node:sqlite";
 import { mkdirSync } from "node:fs";
 import path from "node:path";
+import type { GameMode } from "@/game/types";
 
 let db: DatabaseSync | null = null;
 
@@ -35,11 +36,17 @@ export function getDb(): DatabaseSync {
       level INTEGER NOT NULL,
       auctions INTEGER NOT NULL,
       best_profit INTEGER NOT NULL,
+      mode TEXT NOT NULL DEFAULT 'endless',
       created_at INTEGER NOT NULL
     );
     CREATE INDEX IF NOT EXISTS idx_scores_user ON scores(user_id);
     CREATE INDEX IF NOT EXISTS idx_scores_peak ON scores(peak_net DESC);
   `);
+  const scoreColumns = db.prepare("PRAGMA table_info(scores)").all() as Array<{ name: string }>;
+  if (!scoreColumns.some((column) => column.name === "mode")) {
+    db.exec("ALTER TABLE scores ADD COLUMN mode TEXT NOT NULL DEFAULT 'endless'");
+  }
+  db.exec("CREATE INDEX IF NOT EXISTS idx_scores_mode ON scores(mode)");
   return db;
 }
 
@@ -113,23 +120,34 @@ export function deleteExpiredSessions(): void {
   getDb().prepare("DELETE FROM sessions WHERE expires_at < ?").run(Date.now());
 }
 
-export function addScore(userId: number, peakNet: number, level: number, auctions: number, bestProfit: number): void {
+export function addScore(
+  userId: number,
+  score: number,
+  level: number,
+  auctions: number,
+  bestProfit: number,
+  mode: GameMode
+): void {
   getDb()
-    .prepare("INSERT INTO scores (user_id, peak_net, level, auctions, best_profit, created_at) VALUES (?, ?, ?, ?, ?, ?)")
+    .prepare(
+      "INSERT INTO scores (user_id, peak_net, level, auctions, best_profit, mode, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)"
+    )
     .run(
       userId,
-      Math.max(0, Math.round(peakNet)),
+      Math.max(0, Math.round(score)),
       Math.max(1, Math.round(level)),
       Math.max(0, Math.round(auctions)),
       Math.max(0, Math.round(bestProfit)),
+      mode,
       Date.now()
     );
-  updateUserBest(userId, peakNet, level, auctions);
+  updateUserBest(userId, score, level, auctions);
 }
 
 export type LeaderboardEntry = {
   rank: number;
   username: string;
+  mode: GameMode;
   peak_net: number;
   level: number;
   auctions: number;
@@ -137,34 +155,44 @@ export type LeaderboardEntry = {
   last_run_at: number;
 };
 
-export function getLeaderboard(limit = 50): LeaderboardEntry[] {
-  const rows = getDb()
-    .prepare(
-      `SELECT u.username AS username,
-              MAX(s.peak_net) AS peak_net,
-              MAX(s.level) AS level,
-              MAX(s.auctions) AS auctions,
-              COUNT(*) AS runs,
-              MAX(s.created_at) AS last_run_at
-       FROM scores s JOIN users u ON u.id = s.user_id
-       GROUP BY s.user_id
-       ORDER BY peak_net DESC, level DESC, auctions DESC
-       LIMIT ?`
-    )
-    .all(limit) as Array<Omit<LeaderboardEntry, "rank">>;
+export function getLeaderboard(limit = 50, mode?: GameMode): LeaderboardEntry[] {
+  const statement = getDb().prepare(
+    `SELECT u.username AS username,
+            s.mode AS mode,
+            MAX(s.peak_net) AS peak_net,
+            MAX(s.level) AS level,
+            MAX(s.auctions) AS auctions,
+            COUNT(*) AS runs,
+            MAX(s.created_at) AS last_run_at
+     FROM scores s JOIN users u ON u.id = s.user_id
+     ${mode ? "WHERE s.mode = ?" : ""}
+     GROUP BY s.user_id, s.mode
+     ORDER BY peak_net DESC, level DESC, auctions DESC
+     LIMIT ?`
+  );
+  const rows = (mode ? statement.all(mode, limit) : statement.all(limit)) as Array<
+    Omit<LeaderboardEntry, "rank">
+  >;
   return rows.map((r, i) => ({ ...r, rank: i + 1 }));
 }
 
-export function getUserBest(userId: number): { peak_net: number; level: number; auctions: number; runs: number } {
-  const row = getDb()
-    .prepare(
-      `SELECT COALESCE(MAX(peak_net),0) AS peak_net,
-              COALESCE(MAX(level),0) AS level,
-              COALESCE(MAX(auctions),0) AS auctions,
-              COUNT(*) AS runs
-       FROM scores WHERE user_id = ?`
-    )
-    .get(userId) as { peak_net: number; level: number; auctions: number; runs: number };
+export function getUserBest(
+  userId: number,
+  mode?: GameMode
+): { peak_net: number; level: number; auctions: number; runs: number } {
+  const statement = getDb().prepare(
+    `SELECT COALESCE(MAX(peak_net),0) AS peak_net,
+            COALESCE(MAX(level),0) AS level,
+            COALESCE(MAX(auctions),0) AS auctions,
+            COUNT(*) AS runs
+     FROM scores WHERE user_id = ?${mode ? " AND mode = ?" : ""}`
+  );
+  const row = (mode ? statement.get(userId, mode) : statement.get(userId)) as {
+    peak_net: number;
+    level: number;
+    auctions: number;
+    runs: number;
+  };
   return row;
 }
 

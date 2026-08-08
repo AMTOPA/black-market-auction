@@ -1,6 +1,7 @@
 "use client";
 
 import { availableCredit, levelName } from "@/game/engine";
+import { CONFIG } from "@/game/config";
 import { formatMoney, formatMoneyCn } from "@/game/format";
 import type { GameState } from "@/game/types";
 import { CoinIcon } from "./ItemIcon";
@@ -89,6 +90,24 @@ export function HUD({ state, onEndRun }: HUDProps) {
           <span className="hud-value num">#{state.auctionNumber}</span>
         </span>
       </div>
+      {state.mode === "sprint" ? (
+        <div className="run-progress" title="竞速挑战 · 8 场定胜负">
+          <span>竞速</span>
+          <div className="run-progress-bar">
+            <div
+              className="run-progress-fill"
+              style={{ width: `${Math.min(100, Math.round((state.modeRound / CONFIG.sprintRounds) * 100))}%` }}
+            />
+          </div>
+          <span className="num">
+            {state.modeRound}/{CONFIG.sprintRounds}
+          </span>
+        </div>
+      ) : (
+        <span className="mode-badge endless" title="自由经营 · 无限积累">
+          自由经营
+        </span>
+      )}
       <span className="hud-sep" aria-hidden="true" />
       <div className="hud-stat" title={`Lv.${state.level} · ${levelName(state.level)}`}>
         <span className="hud-ico">
@@ -98,6 +117,10 @@ export function HUD({ state, onEndRun }: HUDProps) {
           <span className="hud-label">等级</span>
           <span className="hud-value gold">Lv.{state.level}</span>
         </span>
+      </div>
+      <div className="rep-chip" title="声望：达到 50 入场费 8 折，达到 100 特殊买家必现">
+        <span aria-hidden="true">👑</span>
+        <span className="num">{state.reputation}</span>
       </div>
       <div className="hud-spacer" />
       {onEndRun ? (

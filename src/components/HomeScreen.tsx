@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import type { GameState } from "@/game/types";
+import type { GameMode, GameState } from "@/game/types";
 import { formatClock, formatMoneyCn } from "@/game/format";
 import type { GuestDailyInfo } from "@/game/save";
 import type { AuthUser } from "@/lib/api";
@@ -20,7 +20,7 @@ export interface HomeScreenProps {
   user: AuthUser | null;
   guestDaily: GuestDailyInfo | null;
   serverClaim: ServerClaimInfo | null;
-  onStartNew: () => void;
+  onStartNew: (mode: GameMode) => void;
   onContinue: () => void;
   onLeaderboard: () => void;
   onOpenAuth: () => void;
@@ -48,6 +48,7 @@ export default function HomeScreen({
 }: HomeScreenProps) {
   const daily = user ? serverClaim : guestDaily;
   const [remainingMs, setRemainingMs] = useState(daily?.nextResetMs ?? 0);
+  const [selectedMode, setSelectedMode] = useState<GameMode>("endless");
 
   useEffect(() => {
     setRemainingMs(daily?.nextResetMs ?? 0);
@@ -74,7 +75,7 @@ export default function HomeScreen({
 
   const handleNewGame = () => {
     if (!game || window.confirm("新账簿会封存当前经营进度。确定重新入场吗？")) {
-      onStartNew();
+      onStartNew(selectedMode);
     }
   };
 
@@ -109,6 +110,26 @@ export default function HomeScreen({
             你正以游客身份穿行暗市：进度保存在本机，成绩不会进入公开榜单。
           </div>
         )}
+
+        <div className="mode-tabs" role="group" aria-label="经营模式选择" style={{ marginTop: 14 }}>
+          <button
+            type="button"
+            className={`mode-tab ${selectedMode === "endless" ? "active" : ""}`}
+            onClick={() => setSelectedMode("endless")}
+          >
+            自由经营
+          </button>
+          <button
+            type="button"
+            className={`mode-tab ${selectedMode === "sprint" ? "active" : ""}`}
+            onClick={() => setSelectedMode("sprint")}
+          >
+            竞速挑战
+          </button>
+        </div>
+        <p className="center muted tiny" style={{ marginTop: 8 }}>
+          自由经营：稳步扩张，看谁走得远 · 竞速挑战：8 场冲刺，比拼最终净资产
+        </p>
 
         <div className="home-actions">
           {hasActiveRun && (

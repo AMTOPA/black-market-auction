@@ -8,7 +8,9 @@
     "start": "next start",
     "lint": "next lint",
     "test:smoke": "tsx scripts/smoke.ts",
-    "test:balance": "tsx scripts/balance.ts"
+    "test:balance": "tsx scripts/balance.ts",
+    "test:migrate": "tsx scripts/migrate-test.ts",
+    "test:ssr": "tsx --tsconfig tsconfig.test.json scripts/ssr-render.ts && tsx --tsconfig tsconfig.test.json scripts/ssr-visual.ts"
   },
   "dependencies": {
     "next": "^15.3.3",

@@ -33,11 +33,15 @@ for (let i = 0; i < 30 && s.phase === "bidding" && !s.deal; i++) {
   if (s.currentBidder !== "player") { s = aiStep(s); continue; }
   s = playerBid(s, "small");
 }
-const bidding = s;
+const bidding = {
+  ...s,
+  openingEvent: { id: "op-test", kind: "opening" as const, title: "神秘注资", text: "一位出资人汇入周转金。", outcome: "现金 +6,000" },
+  commission: { id: "c-test", kind: "win_any" as const, title: "暗线委托：一件入袋", desc: "本场至少拍下一件藏品", reward: 2000, rep: 3 },
+};
 check("AuctionScreen", () => renderToStaticMarkup(h(require("../src/components/AuctionScreen").default, {
   state: bidding, onBid: () => {}, onIntel: () => {}, onDealContinue: () => {}, onAiTick: () => {}, onEndRun: () => {},
-})), ["spotlight-card", "item-icon lg", "bid-btn-lg standard", "bidder-row", "intel-btn", "clue-item"]);
-check("HUD", () => renderToStaticMarkup(h(require("../src/components/HUD").default, { state: bidding })), ["hud-stat", "hud-sep", "hud-ico"]);
+})), ["spotlight-card", "item-icon lg", "bid-btn-lg standard", "bidder-row", "intel-btn", "clue-item", "event-banner", "commission-card"]);
+check("HUD", () => renderToStaticMarkup(h(require("../src/components/HUD").default, { state: bidding })), ["hud-stat", "hud-sep", "hud-ico", "rep-chip", "mode-badge"]);
 
 // 结算状态
 let s2 = bidding;
@@ -54,9 +58,14 @@ while (s2.phase !== "settlement" && guard < 2000) {
   s2 = playerBid(s2, "exit");
 }
 if (s2.phase !== "settlement") s2 = { ...s2, phase: "settlement", currentBidder: null };
+const s2b = {
+  ...s2,
+  settlementEvent: { id: "st-test", kind: "settlement" as const, title: "匿名委托", text: "藏家送来佣金。", outcome: "现金 +5,000" },
+  commission: { id: "c-test2", kind: "win_any" as const, title: "暗线委托：一件入袋", desc: "本场至少拍下一件藏品", reward: 2000, rep: 3 },
+};
 check("SettlementScreen", () => renderToStaticMarkup(h(require("../src/components/SettlementScreen").default, {
-  state: s2, onAction: () => {}, onSpecial: () => {}, onNextRound: () => {}, onHome: () => {},
-})), ["stage-main", "stage-side", "item-card", "market-grid", "news-item"]);
+  state: s2b, onAction: () => {}, onSpecial: () => {}, onNextRound: () => {}, onHome: () => {},
+})), ["stage-main", "stage-side", "item-card", "market-grid", "news-item", "event-banner", "commission-card"]);
 
 // 结算后进入下一场（验证跨场不炸）
 let s3 = nextRound(s2);

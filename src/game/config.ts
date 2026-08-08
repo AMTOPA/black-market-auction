@@ -63,5 +63,17 @@ export const CONFIG = {
   dailyWelfareBase: 3000,
   dailyWelfarePerLevel: 1500,
   dailyWelfareCap: 80000,
+
   milestoneThresholds: [100000, 300000, 800000, 2000000, 5000000, 12000000],
+  // ---- 多元化扩展：模式 / 委托 / 声望 ----
+  sprintRounds: 8, // 竞速挑战固定场次
+  commissionChance: 0.8, // 每场获得委托的概率（避免每场都有）
+  commissionRewardMin: 1000, // 委托保底奖励
+  commissionRewardScale: 0.03, // 委托奖励随净资产缩放
+  commissionRepAward: 5, // 完成委托的声望奖励
+  repCap: 200, // 声望上限
+  repDiscountAt: 50, // 声望达到后入场费 8 折
+  repDiscountRate: 0.2,
+  repSpecialAt: 100, // 声望达到后特殊买家必现
 };
+

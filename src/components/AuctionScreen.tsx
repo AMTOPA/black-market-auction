@@ -80,6 +80,39 @@ export function AuctionScreen(props: AuctionScreenProps) {
     <main className="screen">
       <HUD state={state} onEndRun={props.onEndRun} />
 
+      {(state.openingEvent || state.commission) && (
+        <div className="round-events" style={{ marginTop: 14 }}>
+          {state.openingEvent ? (
+            <div className="event-banner opening fade-in-up">
+              <span className="event-banner-icon" aria-hidden="true">
+                📜
+              </span>
+              <div>
+                <div className="event-banner-head">本场风声 · 随机事件</div>
+                <div className="event-banner-title">{state.openingEvent.title}</div>
+                <div className="event-banner-text">{state.openingEvent.text}</div>
+                {state.openingEvent.outcome ? (
+                  <div className="event-banner-outcome">结果：{state.openingEvent.outcome}</div>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
+          {state.commission ? (
+            <div className="commission-card pending fade-in-up">
+              <span className="commission-icon" aria-hidden="true">
+                📋
+              </span>
+              <div className="commission-title">{state.commission.title}</div>
+              <div className="commission-desc">{state.commission.desc}</div>
+              <div className="commission-reward">
+                奖励 ¥{formatMoney(state.commission.reward)} · 声望 +{state.commission.rep}
+              </div>
+              <div className="commission-status">进行中</div>
+            </div>
+          ) : null}
+        </div>
+      )}
+
       <div className="stage" style={{ marginTop: 16 }}>
         {/* ---- 左：聚光灯舞台 ---- */}
         <div className="stage-main">

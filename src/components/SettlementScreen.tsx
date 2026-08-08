@@ -1,6 +1,6 @@
 "use client";
 
-import { computeNetAssets, entryFee, itemMarketValue } from "@/game/engine";
+import { computeNetAssets, entryFee, itemMarketValue, judgeCommission } from "@/game/engine";
 import { formatMoney, formatMoneyCn, formatMult } from "@/game/format";
 import type { GameState, ItemAction } from "@/game/types";
 
@@ -22,6 +22,7 @@ export function SettlementScreen({ state, onAction, onSpecial, onNextRound, onHo
   const specialBuyer = state.specialBuyer;
   const nextEntryFee = entryFee(state.level);
   const netAssets = computeNetAssets(state);
+  const commissionDone = judgeCommission(state);
 
   const handleHome = () => {
     if (window.confirm("确定返回主页吗？请确认当前进度已经保存。")) {
@@ -63,6 +64,44 @@ export function SettlementScreen({ state, onAction, onSpecial, onNextRound, onHo
           下一场入场费为 <strong className="num">¥{formatMoney(nextEntryFee)}</strong>。进入下一场时还会结算仓储费、债务利息与到期抵押品。
         </div>
       </section>
+
+      {state.settlementEvent || state.commission ? (
+        <div style={{ marginTop: 16 }}>
+          {state.settlementEvent ? (
+            <div className="event-banner settlement fade-in-up">
+              <span className="event-banner-icon" aria-hidden="true">
+                🎐
+              </span>
+              <div>
+                <div className="event-banner-head">场后风声 · 结算事件</div>
+                <div className="event-banner-title">{state.settlementEvent.title}</div>
+                <div className="event-banner-text">{state.settlementEvent.text}</div>
+                {state.settlementEvent.outcome ? (
+                  <div className="event-banner-outcome">结果：{state.settlementEvent.outcome}</div>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
+          {state.commission ? (
+            <div className={`commission-card ${commissionDone ? "done" : "pending"} fade-in-up`} style={{ marginTop: 12 }}>
+              <span className="commission-icon" aria-hidden="true">
+                📋
+              </span>
+              <div className="commission-title">{state.commission.title}</div>
+              <div className="commission-desc">{state.commission.desc}</div>
+              <div className="commission-reward">
+                奖励 ¥{formatMoney(state.commission.reward)} · 声望 +{state.commission.rep}
+              </div>
+              <div className="commission-status">{commissionDone ? "已完成" : "未完成"}</div>
+              {!commissionDone ? (
+                <div className="tiny muted" style={{ gridColumn: "2", marginTop: 4 }}>
+                  完成委托将在进入下一场时结算奖励。
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
 
       {specialBuyer ? (
         <section className="panel panel-gold" style={{ marginTop: 16 }}>

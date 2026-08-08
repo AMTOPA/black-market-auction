@@ -62,14 +62,33 @@ const bidderIds = s.bidders.map((b) => b.id);
 const uniq = (arr: string[]) => new Set(arr).size === arr.length;
 const allStr = (arr: string[]) => arr.every((x) => typeof x === "string" && x.length > 0);
 
+// 多元化扩展：旧存档缺省的新字段应被补上默认值
+const newFields =
+  s.mode === "endless" &&
+  s.modeRound === 1 &&
+  s.reputation === 0 &&
+  s.openingEvent === null &&
+  s.settlementEvent === null &&
+  s.commission === null &&
+  s.roundModifiers === null &&
+  s.roundStats !== undefined &&
+  s.roundStats.wonCount === 0 &&
+  s.roundStats.wonCategories.length === 0 &&
+  s.roundStats.fakesWon === 0 &&
+  s.roundStats.lowBuys === 0 &&
+  s.roundStats.appraisals === 0 &&
+  s.roundStats.realizedProfit === 0;
+
 const pass =
   uniq(allClueIds) && allStr(allClueIds) &&
   uniq(newsIds) && allStr(newsIds) &&
   uniq(logIds) && allStr(logIds) &&
-  uniq(bidderIds) && allStr(bidderIds);
+  uniq(bidderIds) && allStr(bidderIds) &&
+  newFields;
 
 console.log("clue ids:", allClueIds);
 console.log("news ids:", newsIds);
 console.log("bidder ids:", bidderIds);
+console.log("new fields:", JSON.stringify({ mode: s.mode, modeRound: s.modeRound, reputation: s.reputation, roundStats: s.roundStats }));
 console.log(pass ? "MIGRATION TEST PASS" : "MIGRATION TEST FAIL");
 process.exit(pass ? 0 : 1);

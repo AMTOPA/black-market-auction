@@ -38,7 +38,8 @@ export default function RunEndScreen({
     setStatus("submitting");
     setError("");
     apiSubmitScore({
-      peakNet: result.peakNet,
+      mode: result.mode,
+      score: result.score,
       level: result.level,
       auctions: result.auctions,
       bestProfit: result.bestProfit,
@@ -51,7 +52,7 @@ export default function RunEndScreen({
         setStatus("error");
         setError(reason instanceof Error ? reason.message : "成绩递交失败，请稍后重试。");
       });
-  }, [onSubmitted, result.auctions, result.bestProfit, result.level, result.peakNet, retryNonce, submitted, user]);
+  }, [onSubmitted, result.auctions, result.bestProfit, result.level, result.peakNet, result.mode, result.score, retryNonce, submitted, user]);
 
   const retrySubmit = () => {
     if (!user || status === "submitting") return;
@@ -70,11 +71,20 @@ export default function RunEndScreen({
 
       <div className="panel fade-in-up">
         <div className="section-title">最终清算</div>
+        <div className="btn-row" style={{ justifyContent: "center", marginBottom: 6 }}>
+          <span className={`mode-badge ${result.mode === "sprint" ? "sprint" : "endless"}`}>
+            {result.mode === "sprint" ? "竞速挑战" : "自由经营"}
+          </span>
+        </div>
         <p className="center serif">“{result.endReason}”</p>
-        <div className="grid grid-3">
+        <div className="grid grid-4">
           <div className="stat">
             <div className="stat-value gold num">¥{formatMoneyCn(result.peakNet)}</div>
             <div className="stat-label">净资产峰值</div>
+          </div>
+          <div className="stat">
+            <div className="stat-value green num">¥{formatMoneyCn(result.score)}</div>
+            <div className="stat-label">{result.mode === "sprint" ? "最终净资产" : "上榜成绩"}</div>
           </div>
           <div className="stat">
             <div className="stat-value violet num">Lv.{result.level}</div>
