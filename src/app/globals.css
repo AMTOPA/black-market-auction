@@ -1213,3 +1213,44 @@ body {
   .commission-card.pending, .run-progress-fill::after { animation: none; }
   .run-progress-fill { transition: none; }
 }
+
+/* ---------- 居中确认弹窗 ---------- */
+.confirm-modal {
+  width: 100%;
+  max-width: 380px;
+  border-radius: var(--radius);
+  padding: 26px 24px 22px;
+  text-align: center;
+  background:
+    radial-gradient(360px 160px at 50% -12%, rgba(212, 175, 55, 0.14), transparent 70%),
+    linear-gradient(160deg, #1c1526, #0e0b16);
+  border: 1px solid var(--line-strong);
+  box-shadow: var(--shadow-card), 0 0 60px rgba(0, 0, 0, 0.6);
+  animation: dealIn 0.3s var(--ease);
+}
+.confirm-title {
+  font-family: var(--font-serif);
+  font-size: 19px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: var(--gold-bright);
+  margin-bottom: 10px;
+}
+.confirm-message {
+  font-size: 13.5px;
+  line-height: 1.7;
+  color: var(--ink-dim);
+  margin-bottom: 20px;
+}
+.confirm-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+.confirm-actions .btn {
+  flex: 1;
+  max-width: 160px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .confirm-modal { animation: none; }
+}

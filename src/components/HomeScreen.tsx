@@ -6,6 +6,7 @@ import { formatClock, formatMoneyCn } from "@/game/format";
 import type { GuestDailyInfo } from "@/game/save";
 import type { AuthUser } from "@/lib/api";
 import { EmblemMark } from "./ItemIcon";
+import { useConfirm } from "./ConfirmDialog";
 
 type ServerClaimInfo = {
   ok: boolean;
@@ -49,6 +50,7 @@ export default function HomeScreen({
   const daily = user ? serverClaim : guestDaily;
   const [remainingMs, setRemainingMs] = useState(daily?.nextResetMs ?? 0);
   const [selectedMode, setSelectedMode] = useState<GameMode>("endless");
+  const { confirm, dialog } = useConfirm();
 
   useEffect(() => {
     setRemainingMs(daily?.nextResetMs ?? 0);
@@ -73,20 +75,33 @@ export default function HomeScreen({
   const hasActiveRun = Boolean(game && game.phase !== "runEnd");
   const canClaim = Boolean(game && daily && !daily.claimed && (!user || serverClaim?.ok));
 
-  const handleNewGame = () => {
-    if (!game || window.confirm("新账簿会封存当前经营进度。确定重新入场吗？")) {
-      onStartNew(selectedMode);
+  const handleNewGame = async () => {
+    if (game) {
+      const ok = await confirm({
+        title: "另开新局",
+        message: "新账簿会封存当前经营进度，本轮成绩不会进入榜单。确定重新入场吗？",
+        confirmText: "重新入场",
+        tone: "gold",
+      });
+      if (!ok) return;
     }
+    onStartNew(selectedMode);
   };
 
-  const handleEndRun = () => {
-    if (onEndRun && window.confirm("确定就此落槌，结束本轮经营并清算成绩吗？")) {
-      onEndRun();
-    }
+  const handleEndRun = async () => {
+    if (!onEndRun) return;
+    const ok = await confirm({
+      title: "就此落槌",
+      message: "确定就此落槌，结束本轮经营并清算成绩吗？",
+      confirmText: "结束并清算",
+      tone: "danger",
+    });
+    if (ok) onEndRun();
   };
 
   return (
-    <section className="screen screen-narrow">
+    <>
+      <section className="screen screen-narrow">
       <div className="hero fade-in-up">
         <EmblemMark className="emblem floaty" />
         <div className="tiny gold display">EST. IN THE SHADOWS</div>
@@ -233,7 +248,9 @@ export default function HomeScreen({
       )}
 
       <p className="center faint tiny">不问来路，不留收据。请保管好你的筹码与秘密。</p>
-    </section>
+      </section>
+      {dialog}
+    </>
   );
 }
 

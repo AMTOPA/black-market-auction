@@ -80,6 +80,12 @@ check("RunEndScreen", () => renderToStaticMarkup(h(require("../src/components/Ru
   onSubmitted: () => {}, onRestart: () => {}, onHome: () => {}, onLogin: () => {},
 })), ["section-title"]);
 
+// 居中确认弹窗渲染
+check("ConfirmDialog", () => renderToStaticMarkup(h(require("../src/components/ConfirmDialog").ConfirmDialog, {
+  options: { title: "就此落槌", message: "确定结束本轮并清算成绩吗？", confirmText: "结束并清算", tone: "danger" },
+  onConfirm: () => {}, onCancel: () => {},
+})), ["confirm-modal", "confirm-title", "confirm-message", "confirm-actions"]);
+
 // ItemIcon 全类别渲染
 check("ItemIcon all categories", () => {
   const { ItemIcon, EmblemMark, RankMedal, CoinIcon } = require("../src/components/ItemIcon");

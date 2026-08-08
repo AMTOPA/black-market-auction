@@ -5,6 +5,7 @@ import { formatMoney, formatMoneyCn, formatMult } from "@/game/format";
 import type { GameState, ItemAction } from "@/game/types";
 
 import { ItemCard } from "./ItemCard";
+import { useConfirm } from "./ConfirmDialog";
 
 export interface SettlementScreenProps {
   state: GameState;
@@ -23,15 +24,20 @@ export function SettlementScreen({ state, onAction, onSpecial, onNextRound, onHo
   const nextEntryFee = entryFee(state.level);
   const netAssets = computeNetAssets(state);
   const commissionDone = judgeCommission(state);
+  const { confirm, dialog } = useConfirm();
 
-  const handleHome = () => {
-    if (window.confirm("确定返回主页吗？请确认当前进度已经保存。")) {
-      onHome();
-    }
+  const handleHome = async () => {
+    const ok = await confirm({
+      title: "返回主页",
+      message: "确定返回主页吗？请确认当前进度已经保存。",
+      confirmText: "返回主页",
+    });
+    if (ok) onHome();
   };
 
   return (
-    <main className="screen">
+    <>
+      <main className="screen">
       <section className="panel panel-gold fade-in-up">
         <div className="section-title">拍卖会 #{state.auctionNumber} · 场后结算</div>
         <div className="grid grid-4">
@@ -230,7 +236,9 @@ export function SettlementScreen({ state, onAction, onSpecial, onNextRound, onHo
           </section>
         </div>
       </div>
-    </main>
+      </main>
+      {dialog}
+    </>
   );
 }
 

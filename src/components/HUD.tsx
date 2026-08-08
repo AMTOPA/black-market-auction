@@ -5,6 +5,7 @@ import { CONFIG } from "@/game/config";
 import { formatMoney, formatMoneyCn } from "@/game/format";
 import type { GameState } from "@/game/types";
 import { CoinIcon } from "./ItemIcon";
+import { useConfirm } from "./ConfirmDialog";
 
 export interface HUDProps {
   state: GameState;
@@ -21,16 +22,22 @@ function StrokeIcon({ d }: { d: string }) {
 
 export function HUD({ state, onEndRun }: HUDProps) {
   const credit = availableCredit(state);
+  const { confirm, dialog } = useConfirm();
 
-  const handleEndRun = () => {
+  const handleEndRun = async () => {
     if (!onEndRun) return;
-    if (window.confirm("确定要结束本轮经营吗？当前进度将进入最终结算。")) {
-      onEndRun();
-    }
+    const ok = await confirm({
+      title: "结束本轮",
+      message: "确定要结束本轮经营吗？当前进度将进入最终结算。",
+      confirmText: "结束本轮",
+      tone: "danger",
+    });
+    if (ok) onEndRun();
   };
 
   return (
-    <div className="hud" aria-label="经营状态">
+    <>
+      <div className="hud" aria-label="经营状态">
       <div className="hud-stat" title={`现金 ¥${formatMoney(state.cash)}`}>
         <span className="hud-ico">
           <CoinIcon />
@@ -123,12 +130,14 @@ export function HUD({ state, onEndRun }: HUDProps) {
         <span className="num">{state.reputation}</span>
       </div>
       <div className="hud-spacer" />
-      {onEndRun ? (
-        <button type="button" className="btn btn-danger btn-sm" onClick={handleEndRun}>
-          结束本轮
-        </button>
-      ) : null}
-    </div>
+        {onEndRun ? (
+          <button type="button" className="btn btn-danger btn-sm" onClick={handleEndRun}>
+            结束本轮
+          </button>
+        ) : null}
+      </div>
+      {dialog}
+    </>
   );
 }
 
