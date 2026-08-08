@@ -1,6 +1,6 @@
 ﻿import { NextRequest, NextResponse } from "next/server";
-import { createSessionToken } from "@/lib/auth";
-import { findUserByUsername, verifyPassword } from "@/lib/db";
+import { createSessionToken, verifyPassword } from "@/lib/auth";
+import { findUserByUsername } from "@/lib/db";
 
 export async function POST(req: NextRequest) {
   let body: { username?: string; password?: string };
@@ -18,3 +18,4 @@ export async function POST(req: NextRequest) {
   await createSessionToken(user.id);
   return NextResponse.json({ ok: true, user: { id: user.id, username: user.username } });
 }
+

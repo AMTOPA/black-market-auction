@@ -84,10 +84,11 @@ export default function GameApp() {
   // 音效联动：成交 / 收钱
   useEffect(() => {
     if (!game) return;
-    const dealKey = game.deal ? `${game.deal.item.id}:${game.deal.price}` : null;
+    const deal = game.deal ?? null;
+const dealKey = deal ? `${deal.item.id}:${deal.price}` : null;
     if (dealKey && dealKey !== prevDealRef.current) {
       playGavel();
-      if (game.deal.wonBy === "player") playCoin();
+      if (deal?.wonBy === "player") playCoin();
     }
     prevDealRef.current = dealKey;
   }, [game]);
@@ -250,6 +251,7 @@ export default function GameApp() {
         onClaimDaily={handleClaimDaily}
         onToggleMute={handleToggleMute}
         muted={muted}
+        onEndRun={handleEndRun}
       />
     );
   }
@@ -270,4 +272,6 @@ export default function GameApp() {
 function playErrorSilent() {
   playError();
 }
+
+
 

@@ -95,7 +95,7 @@ export interface SpecialBuyer {
 export type LogKind = "bid" | "info" | "deal" | "system" | "intel";
 
 export interface LogEntry {
-  id: number;
+  id: string;
   text: string;
   kind: LogKind;
   actor?: string;
@@ -169,3 +169,5 @@ export type RunResult = {
   setsCompleted: number;
   endReason: string;
 };
+
+

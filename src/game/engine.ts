@@ -18,7 +18,7 @@ import type {
   ItemAction,
   LogEntry,
   Category,
-  SettlementTotals,
+  DealResult,
 } from "./types";
 
 let uid = 0;
@@ -117,10 +117,10 @@ export function newGame(): GameState {
   };
 }
 
-function driftMarket(state: GameState): GameState {
+function driftMarket(state: GameState): Record<Category, number> {
   const next = { ...state.market };
   for (const c of CONFIG.categories) {
-    let drift = (Math.random() * 2 - 1) * CONFIG.marketDrift;
+    let drift = (Math.random() * 2 - 0.9) * CONFIG.marketDrift; // ?????????
     for (const n of state.news) {
       const hit = n.affects.find((a) => a.category === c);
       if (hit && Math.random() < CONFIG.newsBias) drift = hit.dir * Math.abs(drift) * 1.6;
@@ -284,7 +284,7 @@ function resolveDeal(state: GameState): GameState {
   let s: GameState = { ...state, biddingLog: [...state.biddingLog] };
 
   let wonByName = "";
-  let reveal: { authenticity: string; trueValue: number } | null = null;
+  let reveal: NonNullable<DealResult["reveal"]> | null = null;
   if (winnerId === "player") {
     const paid = Math.min(s.cash, price);
     const borrowed = price - paid;
@@ -388,8 +388,9 @@ export function settlementAction(state: GameState, itemId: string, action: ItemA
 
   // sell
   if (action === "sell") {
-    const setParts = item.setInfo ? s.inventory.filter((it) => it.setInfo?.setId === item.setInfo.setId) : [];
-    if (item.setInfo && setParts.length === item.setInfo.size) {
+    const setInfo = item.setInfo;
+    const setParts = setInfo ? s.inventory.filter((it) => it.setInfo?.setId === setInfo.setId) : [];
+    if (setInfo && setParts.length === setInfo.size) {
       const total = setParts.reduce((sum, it) => sum + itemMarketValue(s, it), 0);
       const mult = CONFIG.setBonusMin + Math.random() * (CONFIG.setBonusMax - CONFIG.setBonusMin);
       const price = Math.round(total * mult);
@@ -397,7 +398,7 @@ export function settlementAction(state: GameState, itemId: string, action: ItemA
       s.inventory = s.inventory.filter((it) => !ids.has(it.id));
       s.cash += price;
       s.setsCompleted += 1;
-      s.biddingLog.push({ id: nextId(), text: `成套出售《${item.setInfo.setName}》（${setParts.length}件）！收入 ${formatMoney(price)}`, kind: "deal" });
+      s.biddingLog.push({ id: nextId(), text: `成套出售《${setInfo.setName}》（${setParts.length}件）！收入 ${formatMoney(price)}`, kind: "deal" });
       return s;
     }
     const base = itemMarketValue(s, item);
@@ -520,3 +521,4 @@ export function buildRunResult(state: GameState): { peakNet: number; level: numb
 export function recentLog(state: GameState, n = 40): LogEntry[] {
   return state.biddingLog.slice(-n);
 }
+
