@@ -1,10 +1,11 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import type { GameState } from "@/game/types";
 import { formatClock, formatMoneyCn } from "@/game/format";
 import type { GuestDailyInfo } from "@/game/save";
 import type { AuthUser } from "@/lib/api";
+import { EmblemMark } from "./ItemIcon";
 
 type ServerClaimInfo = {
   ok: boolean;
@@ -86,6 +87,7 @@ export default function HomeScreen({
   return (
     <section className="screen screen-narrow">
       <div className="hero fade-in-up">
+        <EmblemMark className="emblem floaty" />
         <div className="tiny gold display">EST. IN THE SHADOWS</div>
         <h1 className="logo">黑市拍卖行</h1>
         <p className="logo-sub">真伪无言 · 价高者得</p>

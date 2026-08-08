@@ -1,4 +1,4 @@
-﻿// ============ 黑市拍卖行 · 拍品 / 买家 / 新闻生成器 ============
+// ============ 黑市拍卖行 · 拍品 / 买家 / 新闻生成器 ============
 import { CONFIG } from "./config";
 import { nextId } from "./engine";
 import { chance, pick, pickN, rand, randInt, shuffle, weightedPick } from "./rng";
@@ -82,12 +82,12 @@ function buildClues(authenticity: Item["authenticity"]): Clue[] {
   const clues: Clue[] = chosen.map((t) => {
     const isFake = oppositePool.includes(t);
     const signal = genuine ? (isFake ? -1 : 1) : isFake ? 1 : -1;
-    return { id: Number(nextId().replace(/\D/g, "") || 1), text: t.text, signal, strength: t.strength };
+    return { id: nextId(), text: t.text, signal, strength: t.strength };
   });
 
   // 追加一条中性线索
   const neutral = pick(NEUTRAL_CLUES);
-  clues.push({ id: Number(nextId().replace(/\D/g, "") || 1), text: neutral.text, signal: 0, strength: neutral.strength });
+  clues.push({ id: nextId(), text: neutral.text, signal: 0, strength: neutral.strength });
   return clues;
 }
 
@@ -197,7 +197,7 @@ export function generateAIBidders(level: number): AIBidder[] {
 export function pickNews(): NewsEvent[] {
   const n = randInt(1, 2);
   return pickN(NEWS_TEMPLATES, n).map((t) => ({
-    id: Number(nextId().replace(/\D/g, "") || 1),
+    id: nextId(),
     title: t.title,
     hint: t.hint,
     affects: [...t.affects],

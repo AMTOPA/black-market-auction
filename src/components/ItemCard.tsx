@@ -1,10 +1,12 @@
-﻿"use client";
+"use client";
 
 import type { ReactNode } from "react";
 
 import { itemMarketValue } from "@/game/engine";
 import { formatMoney, formatMult } from "@/game/format";
 import type { GameState, Item, Tag } from "@/game/types";
+
+import { ItemIcon } from "./ItemIcon";
 
 export interface ItemCardProps {
   item: Item;
@@ -31,12 +33,17 @@ export function ItemCard({ item, state, children }: ItemCardProps) {
 
   return (
     <article className="item-card">
-      <div className="item-name">{item.name}</div>
-      <div className="item-sub">
-        {item.category} · 品相：{item.condition} · 第 {item.acquiredRound || state.auctionNumber} 场入手
+      <div className="item-card-head">
+        <ItemIcon category={item.category} size="md" />
+        <div className="item-card-title">
+          <div className="item-name">{item.name}</div>
+          <div className="item-sub">
+            {item.category} · 品相：{item.condition} · 第 {item.acquiredRound || state.auctionNumber} 场入手
+          </div>
+        </div>
       </div>
 
-      <div className="btn-row">
+      <div className="item-card-tags">
         {item.tags.map((tag) => (
           <span className={tagClass(tag)} key={tag}>
             {tag}
@@ -48,10 +55,10 @@ export function ItemCard({ item, state, children }: ItemCardProps) {
         ) : null}
       </div>
 
-      <div className="grid grid-2">
+      <div className="item-card-body">
         <div className="stat">
           <div className="stat-label">{item.appraised ? "鉴定真实价值" : "未鉴定估价区间"}</div>
-          <div className="estimate num">
+          <div className="stat-value gold num">
             {item.appraised
               ? `¥${formatMoney(item.trueValue)}`
               : `¥${formatMoney(item.estimateLow)} ~ ¥${formatMoney(item.estimateHigh)}`}
@@ -69,21 +76,23 @@ export function ItemCard({ item, state, children }: ItemCardProps) {
       </div>
 
       {item.appraised ? (
-        <div className="btn-row">
+        <div className="item-card-tags">
           <span className={authenticityClass(item.authenticity)}>{item.authenticity}</span>
           <span className="tag">品相：{item.condition}</span>
         </div>
       ) : (
-        <div className="notice">尚未鉴定：直接出售时买家会利用信息差压价。</div>
+        <div className="notice" style={{ margin: 0 }}>
+          尚未鉴定：直接出售时买家会利用信息差压价。
+        </div>
       )}
 
       {item.setInfo ? (
-        <div className="clue">
+        <div className="clue-item">
           套装「{item.setInfo.setName}」· 第 {item.setInfo.index}/{item.setInfo.size} 件
         </div>
       ) : null}
 
-      {children ? <div className="btn-row">{children}</div> : null}
+      {children ? <div className="item-card-actions">{children}</div> : null}
     </article>
   );
 }

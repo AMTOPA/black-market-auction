@@ -1,4 +1,4 @@
-﻿// ============ 黑市拍卖行 · 核心类型定义 ============
+// ============ 黑市拍卖行 · 核心类型定义 ============
 // 本文件是所有模块（引擎 / 生成器 / UI）的唯一数据契约，请勿随意改动字段名。
 
 export type Category = "绘画" | "珠宝" | "古币" | "武器" | "酒" | "手稿" | "雕塑" | "奇物";
@@ -12,7 +12,7 @@ export type ItemAction = "sell" | "appraise" | "hold" | "pawn" | "redeem";
 
 /** 公开线索。signal/strength 对玩家隐藏，仅引擎使用。 */
 export interface Clue {
-  id: number;
+  id: string;
   text: string;
   signal: 1 | 0 | -1; // +1 指向真品，-1 指向赝品，0 中性
   strength: number; // 0..1，影响玩家判断的重要程度
@@ -77,7 +77,7 @@ export interface AIBidder {
 }
 
 export interface NewsEvent {
-  id: number;
+  id: string;
   title: string;
   hint: string; // 给玩家的提示文案
   affects: { category: Category; dir: 1 | -1 }[];

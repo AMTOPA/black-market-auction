@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useRef, useState } from "react";
 import { formatMoneyCn } from "@/game/format";
@@ -69,7 +69,7 @@ export default function RunEndScreen({
       </div>
 
       <div className="panel fade-in-up">
-        <div className="panel-title">◆ 最终清算</div>
+        <div className="section-title">最终清算</div>
         <p className="center serif">“{result.endReason}”</p>
         <div className="grid grid-3">
           <div className="stat">

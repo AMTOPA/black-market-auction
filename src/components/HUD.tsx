@@ -1,12 +1,21 @@
-﻿"use client";
+"use client";
 
 import { availableCredit, levelName } from "@/game/engine";
 import { formatMoney, formatMoneyCn } from "@/game/format";
 import type { GameState } from "@/game/types";
+import { CoinIcon } from "./ItemIcon";
 
 export interface HUDProps {
   state: GameState;
   onEndRun?: () => void;
+}
+
+function StrokeIcon({ d }: { d: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d={d} />
+    </svg>
+  );
 }
 
 export function HUD({ state, onEndRun }: HUDProps) {
@@ -21,42 +30,73 @@ export function HUD({ state, onEndRun }: HUDProps) {
 
   return (
     <div className="hud" aria-label="经营状态">
-      <div className="hud-item">
-        <span className="hud-label">现金</span>
-        <span className="hud-value green num" title={`¥${formatMoney(state.cash)}`}>
-          ¥{formatMoneyCn(state.cash)}
+      <div className="hud-stat" title={`现金 ¥${formatMoney(state.cash)}`}>
+        <span className="hud-ico">
+          <CoinIcon />
+        </span>
+        <span className="hud-info">
+          <span className="hud-label">现金</span>
+          <span className="hud-value green num">¥{formatMoneyCn(state.cash)}</span>
         </span>
       </div>
-      <div className="hud-item">
-        <span className="hud-label">债务</span>
-        <span className={`hud-value num ${state.debt > 0 ? "red" : ""}`} title={`¥${formatMoney(state.debt)}`}>
-          ¥{formatMoneyCn(state.debt)}
+      <span className="hud-sep" aria-hidden="true" />
+      <div className="hud-stat" title={`债务 ¥${formatMoney(state.debt)}`}>
+        <span className="hud-ico">
+          <StrokeIcon d="M12 4v16M6 14l6 6 6-6" />
+        </span>
+        <span className="hud-info">
+          <span className="hud-label">债务</span>
+          <span className={`hud-value num ${state.debt > 0 ? "red" : ""}`}>¥{formatMoneyCn(state.debt)}</span>
         </span>
       </div>
-      <div className="hud-item">
-        <span className="hud-label">可用信用</span>
-        <span className="hud-value cyan num" title={`¥${formatMoney(credit)}`}>
-          ¥{formatMoneyCn(credit)}
+      <span className="hud-sep" aria-hidden="true" />
+      <div className="hud-stat" title={`可用信用 ¥${formatMoney(credit)}`}>
+        <span className="hud-ico">
+          <StrokeIcon d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z" />
+        </span>
+        <span className="hud-info">
+          <span className="hud-label">可用信用</span>
+          <span className="hud-value cyan num">¥{formatMoneyCn(credit)}</span>
         </span>
       </div>
-      <div className="hud-item">
-        <span className="hud-label">情报点</span>
-        <span className="hud-value violet num">{state.intel}</span>
-      </div>
-      <div className="hud-item">
-        <span className="hud-label">库存</span>
-        <span className={`hud-value num ${state.inventory.length >= 6 ? "red" : ""}`}>
-          {state.inventory.length}/6
+      <span className="hud-sep" aria-hidden="true" />
+      <div className="hud-stat" title="情报点：调查真伪 / 定价 / 买家情报">
+        <span className="hud-ico">
+          <StrokeIcon d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" />
+        </span>
+        <span className="hud-info">
+          <span className="hud-label">情报点</span>
+          <span className="hud-value violet num">{state.intel}</span>
         </span>
       </div>
-      <div className="hud-item">
-        <span className="hud-label">场次</span>
-        <span className="hud-value num">#{state.auctionNumber}</span>
+      <span className="hud-sep" aria-hidden="true" />
+      <div className="hud-stat" title={`库存 ${state.inventory.length}/6`}>
+        <span className="hud-ico">
+          <StrokeIcon d="M21 8l-9-5-9 5v8l9 5 9-5V8zM3 8l9 5 9-5M12 13v8" />
+        </span>
+        <span className="hud-info">
+          <span className="hud-label">库存</span>
+          <span className={`hud-value num ${state.inventory.length >= 6 ? "red" : ""}`}>{state.inventory.length}/6</span>
+        </span>
       </div>
-      <div className="hud-item">
-        <span className="hud-label">等级</span>
-        <span className="hud-value gold">
-          Lv.{state.level} · {levelName(state.level)}
+      <span className="hud-sep" aria-hidden="true" />
+      <div className="hud-stat">
+        <span className="hud-ico">
+          <StrokeIcon d="M4 9h16M4 15h16M10 3L8 21M16 3l-2 18" />
+        </span>
+        <span className="hud-info">
+          <span className="hud-label">场次</span>
+          <span className="hud-value num">#{state.auctionNumber}</span>
+        </span>
+      </div>
+      <span className="hud-sep" aria-hidden="true" />
+      <div className="hud-stat" title={`Lv.${state.level} · ${levelName(state.level)}`}>
+        <span className="hud-ico">
+          <StrokeIcon d="M12 3l2.7 5.6 6.1.8-4.5 4.2 1.1 6-5.4-2.9-5.4 2.9 1.1-6L3.2 9.4l6.1-.8z" />
+        </span>
+        <span className="hud-info">
+          <span className="hud-label">等级</span>
+          <span className="hud-value gold">Lv.{state.level}</span>
         </span>
       </div>
       <div className="hud-spacer" />

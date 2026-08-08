@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useRef } from "react";
 
@@ -7,6 +7,7 @@ import { formatMoney, formatMoneyCn, formatMult } from "@/game/format";
 import type { BidChoice, GameState, IntelAction } from "@/game/types";
 
 import { HUD } from "./HUD";
+import { ItemIcon } from "./ItemIcon";
 
 export interface AuctionScreenProps {
   state: GameState;
@@ -60,9 +61,11 @@ export function AuctionScreen(props: AuctionScreenProps) {
 
   if (!item) {
     return (
-      <main className="screen screen-narrow grid">
+      <main className="screen screen-narrow">
         <HUD state={state} onEndRun={props.onEndRun} />
-        <div className="notice">拍品资料正在整理，请稍候。</div>
+        <div className="notice" style={{ marginTop: 16 }}>
+          拍品资料正在整理，请稍候。
+        </div>
       </main>
     );
   }
@@ -71,142 +74,213 @@ export function AuctionScreen(props: AuctionScreenProps) {
   const marketDirection = marketMult > 1 ? "up" : marketMult < 1 ? "down" : "flat";
   const marketArrow = marketMult > 1 ? "↑" : marketMult < 1 ? "↓" : "→";
 
+  const playerStillIn = state.activeBidders.includes("player");
+
   return (
-    <main className="screen grid">
+    <main className="screen">
       <HUD state={state} onEndRun={props.onEndRun} />
 
-      <section className="panel fade-in-up">
-        <div className="panel-title">
-          地下拍卖现场 · 第 {state.itemIndex + 1}/{state.itemsThisRound.length} 件
-        </div>
-        <div className="grid grid-2">
-          <article className="item-card">
-            <div className="item-name">{item.name}</div>
-            <div className="item-sub">类别：{item.category} · 品相：{item.condition}</div>
-
-            <div className="btn-row">
-              {item.tags.map((tag) => (
-                <span className="tag tag-gold" key={tag}>
-                  {tag}
-                </span>
-              ))}
-              {item.setInfo ? <span className="tag tag-violet">{item.setInfo.partLabel}</span> : null}
+      <div className="stage" style={{ marginTop: 16 }}>
+        {/* ---- 左：聚光灯舞台 ---- */}
+        <div className="stage-main">
+          <section className="spotlight-card">
+            <div className="kicker">
+              LOT {state.itemIndex + 1} / {state.itemsThisRound.length} · 地下拍卖现场
             </div>
-
-            <div className="stat">
-              <div className="stat-label">行家估价</div>
-              <div className="estimate num">
-                ¥{formatMoney(item.estimateLow)} ~ ¥{formatMoney(item.estimateHigh)}
-              </div>
-            </div>
-
-            <div className="market-grid">
-              <div className="market-cell">
-                <div className="cat">{item.category}行情</div>
-                <div className={`mult ${marketDirection}`}>
-                  {marketArrow} {formatMult(marketMult)}
+            <div className="spotlight-top" style={{ marginTop: 12 }}>
+              <ItemIcon category={item.category} size="lg" />
+              <div className="spotlight-identity">
+                <h2 className="spotlight-name">{item.name}</h2>
+                <div className="spotlight-sub">
+                  {item.category} · 品相：{item.condition}
+                  {item.setInfo ? ` · 套装「${item.setInfo.setName}」${item.setInfo.partLabel}` : ""}
+                </div>
+                <div className="spotlight-tags">
+                  {item.tags.map((tag) => (
+                    <span className="tag tag-gold" key={tag}>
+                      {tag}
+                    </span>
+                  ))}
+                  {item.setInfo ? <span className="tag tag-violet">{item.setInfo.partLabel}</span> : null}
                 </div>
               </div>
-              <div className="market-cell">
-                <div className="cat">当前叫价</div>
-                <div className="mult gold num">¥{formatMoney(state.currentPrice)}</div>
+            </div>
+
+            <div className="spotlight-meta">
+              <div className="meta-cell">
+                <div className="kicker">行家估价</div>
+                <div className="meta-big gold num">
+                  ¥{formatMoney(item.estimateLow)} ~ ¥{formatMoney(item.estimateHigh)}
+                </div>
+                <div className="meta-small">中位数 ¥{formatMoney(item.estimateMedian)}</div>
+              </div>
+              <div className="meta-cell">
+                <div className="kicker">当前叫价</div>
+                <div className="meta-big gold num">¥{formatMoney(state.currentPrice)}</div>
+                <div className={`meta-small ${marketDirection === "up" ? "green" : marketDirection === "down" ? "red" : ""}`}>
+                  {item.category}行情 {marketArrow} {formatMult(marketMult)}
+                </div>
+              </div>
+              <div className="meta-cell">
+                <div className="kicker">可调度资金</div>
+                <div className="meta-big num">¥{formatMoneyCn(spendingPower)}</div>
+                <div className="meta-small">现金 + 可用信用</div>
               </div>
             </div>
 
-            <div className="panel-title">公开线索</div>
-            {item.clues.map((clue) => (
-              <div className="clue" key={clue.id}>
-                {clue.text}
-              </div>
-            ))}
-          </article>
+            <div className="section-title" style={{ marginTop: 18 }}>
+              公开线索
+            </div>
+            <div className="clue-list">
+              {item.clues.map((clue) => (
+                <div className="clue-item" key={clue.id}>
+                  {clue.text}
+                </div>
+              ))}
+            </div>
+          </section>
 
-          <div className="panel">
-            <div className="panel-title">现场记录</div>
-            <div className="log" ref={logRef} aria-live="polite">
-              {logs.length > 0 ? (
-                logs.map((entry) => {
-                  const actorClass = entry.actor === "玩家" ? "actor-player" : entry.actor ? "actor-bidder" : "";
-                  return (
-                    <div className={`log-entry ${entry.kind} ${actorClass}`} key={String(entry.id)}>
-                      {entry.text}
+          <section className="panel">
+            <div className="section-title">现场记录</div>
+            <div className="log-panel" ref={logRef} aria-live="polite">
+              <div className="log">
+                {logs.length > 0 ? (
+                  logs.map((entry) => {
+                    const actorClass = entry.actor === "玩家" ? "actor-player" : entry.actor ? "actor-bidder" : "";
+                    return (
+                      <div className={`log-entry ${entry.kind} ${actorClass}`} key={String(entry.id)}>
+                        {entry.text}
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="log-entry system">拍卖师正在确认起拍价……</div>
+                )}
+              </div>
+            </div>
+          </section>
+        </div>
+
+        {/* ---- 右：买家席 + 情报 ---- */}
+        <div className="stage-side">
+          <section className="panel">
+            <div className="section-title">买家席</div>
+            <div className="bidder-rail">
+              <div
+                className={`bidder-row player-row ${state.currentBidder === "player" ? "active" : ""} ${
+                  playerStillIn ? "" : "out"
+                }`}
+              >
+                <span className="avatar">🎩</span>
+                <div className="bidder-info">
+                  <div className="bidder-name">你</div>
+                  <div className="bidder-kind" title={`现金与信用合计 ¥${formatMoney(spendingPower)}`}>
+                    黑市经营者 · 可调度 ¥{formatMoneyCn(spendingPower)}
+                  </div>
+                </div>
+                <div className="bidder-status">
+                  {!playerStillIn ? (
+                    <span className="tag tag-red">出局</span>
+                  ) : state.currentBidder === "player" ? (
+                    <>
+                      <span className="turn-dot" aria-hidden="true" />
+                      <span className="turn-tag">出价</span>
+                    </>
+                  ) : null}
+                </div>
+              </div>
+
+              {state.bidders.map((bidder) => {
+                const isActive = state.currentBidder === bidder.id;
+                const isInAuction = state.activeBidders.includes(bidder.id);
+                return (
+                  <div className={`bidder-row ${isActive ? "active" : ""} ${isInAuction ? "" : "out"}`} key={bidder.id}>
+                    <span className="avatar">{bidder.emoji}</span>
+                    <div className="bidder-info">
+                      <div className="bidder-name">{bidder.name}</div>
+                      <div className="bidder-kind">
+                        {bidder.kind} · 财力：{bidder.wealthTier}
+                      </div>
                     </div>
-                  );
-                })
-              ) : (
-                <div className="log-entry system">拍卖师正在确认起拍价……</div>
-              )}
+                    <div className="bidder-status">
+                      {!isInAuction ? (
+                        <span className="tag tag-red">出局</span>
+                      ) : isActive ? (
+                        <>
+                          <span className="turn-dot" aria-hidden="true" />
+                          <span className="turn-tag">出价</span>
+                        </>
+                      ) : null}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-          </div>
-        </div>
-      </section>
+          </section>
 
-      <section className="panel">
-        <div className="panel-title">
-          买家席 · 当前价格 <span className="gold num">¥{formatMoney(state.currentPrice)}</span>
-        </div>
-        <div className="bidder-row">
-          <div
-            className={`bidder player-card ${state.currentBidder === "player" ? "active" : ""} ${
-              state.activeBidders.includes("player") ? "" : "out"
-            }`}
-          >
-            <span className="avatar">🎩</span>
-            <span className="bidder-name">你</span>
-            <div className="bidder-kind">黑市经营者</div>
-            <div className="wealth num" title={`现金与信用合计 ¥${formatMoney(spendingPower)}`}>
-              可调度：¥{formatMoneyCn(spendingPower)}
+          <section className="panel">
+            <div className="section-title">情报交易 · 每次 1 点</div>
+            <div className="intel-bar">
+              {INTEL_OPTIONS.map((option) => (
+                <button
+                  type="button"
+                  className="intel-btn"
+                  disabled={!canUseIntel}
+                  onClick={() => props.onIntel(option.action)}
+                  key={option.action}
+                  title={option.detail}
+                >
+                  {option.label}
+                  <span className="tiny" style={{ opacity: 0.72 }}>
+                    {" "}
+                    · {option.detail}
+                  </span>
+                </button>
+              ))}
             </div>
-            {!state.activeBidders.includes("player") ? <span className="tag tag-red">已出局</span> : null}
-          </div>
-
-          {state.bidders.map((bidder) => {
-            const isActive = state.currentBidder === bidder.id;
-            const isInAuction = state.activeBidders.includes(bidder.id);
-            return (
-              <div className={`bidder ${isActive ? "active" : ""} ${isInAuction ? "" : "out"}`} key={bidder.id}>
-                <span className="avatar">{bidder.emoji}</span>
-                <span className="bidder-name">{bidder.name}</span>
-                <div className="bidder-kind">{bidder.kind}</div>
-                <div className="wealth">财力：{bidder.wealthTier}</div>
-                {!isInAuction ? <span className="tag tag-red">已出局</span> : null}
+            {canUseIntel ? null : state.intel === 0 ? (
+              <div className="center muted tiny" style={{ marginTop: 8 }}>
+                本场情报点已耗尽，留待下一场补充。
               </div>
-            );
-          })}
+            ) : null}
+          </section>
         </div>
-      </section>
+      </div>
 
       {state.inventoryFullNotice ? (
-        <div className="notice">库存已满（{state.inventory.length}/6），本件拍品只能旁观。请在结算阶段出售或抵押藏品。</div>
+        <div className="notice" style={{ marginTop: 16 }}>
+          库存已满（{state.inventory.length}/6），本件拍品只能旁观。请在结算阶段出售或抵押藏品。
+        </div>
       ) : null}
 
-      <section className="panel">
-        <div className="panel-title">你的竞价</div>
-        <div className="bid-panel">
+      {/* ---- 底部：竞价操作区 ---- */}
+      <section className="panel panel-gold action-bar" style={{ marginTop: 16 }}>
+        <div className="bid-bar">
           {BID_OPTIONS.map((option) => {
             const nextPrice = round100(state.currentPrice * (1 + option.step));
             const affordable = canBidAt(state, nextPrice);
+            const tone = option.choice === "small" ? "small" : option.choice === "standard" ? "standard" : "strong";
             return (
               <button
                 type="button"
-                className="btn bid-btn"
+                className={`bid-btn-lg ${tone}`}
                 disabled={!canPlayerAct || !affordable}
                 onClick={() => props.onBid(option.choice)}
                 key={option.choice}
                 title={!affordable ? "现金与可用信用不足" : undefined}
               >
-                {option.label}
+                <span className="bid-main">{option.label}</span>
                 <span className="bid-sub num">叫价 ¥{formatMoney(nextPrice)}</span>
               </button>
             );
           })}
           <button
             type="button"
-            className="btn btn-danger bid-btn exit"
+            className="bid-btn-lg exit"
             disabled={!canPlayerAct}
             onClick={() => props.onBid("exit")}
           >
-            退出
+            <span className="bid-main">退出</span>
             <span className="bid-sub">保留资金</span>
           </button>
         </div>
@@ -217,41 +291,25 @@ export function AuctionScreen(props: AuctionScreenProps) {
         ) : null}
       </section>
 
-      <section className="panel">
-        <div className="panel-title">情报交易 · 每次消耗 1 点</div>
-        <div className="bid-panel">
-          {INTEL_OPTIONS.map((option) => (
-            <button
-              type="button"
-              className="btn btn-violet bid-btn"
-              disabled={!canUseIntel}
-              onClick={() => props.onIntel(option.action)}
-              key={option.action}
-            >
-              {option.label}
-              <span className="bid-sub">{option.detail}</span>
-            </button>
-          ))}
-        </div>
-      </section>
-
       {state.deal ? (
         <div className="overlay" role="dialog" aria-modal="true" aria-label="成交结果">
           <div className={`deal-card ${state.deal.wonBy === "player" ? "win" : "lose"}`}>
+            <div className="deal-icon">
+              <ItemIcon category={state.deal.item.category} size="md" />
+            </div>
             <div className="deal-stamp">{state.deal.wonBy === "player" ? "成交！" : "落槌"}</div>
-            <div className="item-name">{state.deal.item.name}</div>
+            <div className="deal-item-name">{state.deal.item.name}</div>
             {state.deal.wonBy === "player" ? (
               <>
-                <p className="green bold">你以 ¥{formatMoney(state.deal.price)} 赢下拍品</p>
-                <p className="muted small">藏品已进入库存，真相留待结算时鉴定。</p>
+                <div className="deal-price green num">¥{formatMoney(state.deal.price)}</div>
+                <p className="deal-note">藏品已进入库存，真相留待结算时鉴定。</p>
               </>
             ) : (
               <>
-                <p className="red bold">
-                  被 {state.deal.wonByName} 以 ¥{formatMoney(state.deal.price)} 拍走
-                </p>
+                <div className="deal-price red num">¥{formatMoney(state.deal.price)}</div>
+                <p className="deal-note">被 {state.deal.wonByName} 拍走</p>
                 {state.deal.reveal ? (
-                  <div className="panel">
+                  <div className="panel" style={{ marginTop: 14 }}>
                     <div className="panel-title">复盘揭示</div>
                     <div className="stat-value gold num">真实价值 ¥{formatMoney(state.deal.reveal.trueValue)}</div>
                     <span
@@ -269,7 +327,12 @@ export function AuctionScreen(props: AuctionScreenProps) {
                 ) : null}
               </>
             )}
-            <button type="button" className="btn btn-gold btn-lg btn-block" onClick={props.onDealContinue}>
+            <button
+              type="button"
+              className="btn btn-gold btn-lg btn-block"
+              style={{ marginTop: 18 }}
+              onClick={props.onDealContinue}
+            >
               继续
             </button>
           </div>
@@ -280,7 +343,3 @@ export function AuctionScreen(props: AuctionScreenProps) {
 }
 
 export default AuctionScreen;
-
-
-
-
