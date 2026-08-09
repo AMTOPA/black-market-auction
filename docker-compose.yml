@@ -1,6 +1,6 @@
 # 生产部署编排：黑市拍卖行
 # 用法（在服务器上）：docker compose up -d --build
-# 端口 8371 仅绑定本机回环地址（127.0.0.1），对外由 1Panel/OpenResty 反向代理：
+# 端口 8371 仅绑定本机回环地址（127.0.0.1），对外由站点反向代理：
 #   反向代理目标 http://127.0.0.1:8371 ，路径前缀 /black-market-auction
 services:
   black-market-auction:
