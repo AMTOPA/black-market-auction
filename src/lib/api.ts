@@ -1,4 +1,5 @@
 import type { GameMode } from "@/game/types";
+import { apiUrl } from "@/lib/base";
 
 export type AuthUser = { id: number; username: string };
 export type LeaderboardRow = {
@@ -50,14 +51,14 @@ async function apiFetch<T>(input: string, init?: RequestInit): Promise<T> {
 }
 
 export async function apiMe(): Promise<{ user: AuthUser | null }> {
-  return apiFetch("/api/auth/me");
+  return apiFetch(apiUrl("/api/auth/me"));
 }
 
 export async function apiRegister(
   username: string,
   password: string,
 ): Promise<{ ok: true; user: AuthUser }> {
-  return apiFetch("/api/auth/register", {
+  return apiFetch(apiUrl("/api/auth/register"), {
     method: "POST",
     body: JSON.stringify({ username, password }),
   });
@@ -67,20 +68,20 @@ export async function apiLogin(
   username: string,
   password: string,
 ): Promise<{ ok: true; user: AuthUser }> {
-  return apiFetch("/api/auth/login", {
+  return apiFetch(apiUrl("/api/auth/login"), {
     method: "POST",
     body: JSON.stringify({ username, password }),
   });
 }
 
 export async function apiLogout(): Promise<void> {
-  await apiFetch<{ ok: true }>("/api/auth/logout", { method: "POST" });
+  await apiFetch<{ ok: true }>(apiUrl("/api/auth/logout"), { method: "POST" });
 }
 
 export async function apiLeaderboard(limit = 50, mode?: GameMode): Promise<LeaderboardData> {
   const params = new URLSearchParams({ limit: String(limit) });
   if (mode) params.set("mode", mode);
-  return apiFetch(`/api/leaderboard?${params.toString()}`);
+  return apiFetch(apiUrl(`/api/leaderboard?${params.toString()}`));
 }
 
 export async function apiSubmitScore(r: {
@@ -93,7 +94,7 @@ export async function apiSubmitScore(r: {
   ok: true;
   best: { peak_net: number; level: number; auctions: number; runs: number };
 }> {
-  return apiFetch("/api/leaderboard", {
+  return apiFetch(apiUrl("/api/leaderboard"), {
     method: "POST",
     body: JSON.stringify({
       mode: r.mode,
@@ -106,9 +107,9 @@ export async function apiSubmitScore(r: {
 }
 
 export async function apiDailyClaim(): Promise<DailyClaimResponse> {
-  return apiFetch("/api/daily-claim");
+  return apiFetch(apiUrl("/api/daily-claim"));
 }
 
 export async function apiDailyClaimPost(): Promise<DailyClaimResponse> {
-  return apiFetch("/api/daily-claim", { method: "POST" });
+  return apiFetch(apiUrl("/api/daily-claim"), { method: "POST" });
 }

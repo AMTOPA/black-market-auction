@@ -1,0 +1,14 @@
+.git
+.gitignore
+.next
+node_modules
+npm-debug.log*
+data/*.db
+data/*.db-shm
+data/*.db-wal
+_shots
+.playwright-mcp
+dev*.log
+*.tsbuildinfo
+docs
+scripts

@@ -1,0 +1,22 @@
+# 生产部署编排：黑市拍卖行
+# 用法（在服务器上）：docker compose up -d --build
+# 端口 8371 仅绑定本机回环地址（127.0.0.1），对外由 1Panel/OpenResty 反向代理：
+#   反向代理目标 http://127.0.0.1:8371 ，路径前缀 /black-market-auction
+services:
+  black-market-auction:
+    build:
+      context: .
+      args:
+        BASE_PATH: /black-market-auction
+    image: black-market-auction:latest
+    container_name: black-market-auction
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8371:3000"
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_BASE_PATH=/black-market-auction
+    volumes:
+      - bma-data:/app/data
+volumes:
+  bma-data:

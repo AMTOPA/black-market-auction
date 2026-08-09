@@ -20,6 +20,14 @@
 - **排行榜**：不登录也能玩；**想上榜必须注册登录**，支持按「全部 / 自由经营 / 竞速挑战」筛选，按净资产排名。
 - **v2 扩展**：场型随机化 / 多身份流派 / 每日挑战 / 传奇拍品 / 生涯声望解锁 / 本场结算明细 / 信息卡三选一 / 现金利息引擎——每场都有新期待。
 
+## 在线体验
+
+- 项目导航：https://amtopa.com
+- 黑市拍卖行：https://amtopa.com/black-market-auction
+
+> 部署架构：Oracle Cloud 服务器 + Docker（Next.js standalone）+ 1Panel/OpenResty 反向代理 + Let's Encrypt 证书。
+> 详细部署见 [deploy/README.md](deploy/README.md)。
+
 ## 🚀 运行
 
 需要 Node.js ≥ 22（内置 `node:sqlite`）。
