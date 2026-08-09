@@ -25,7 +25,7 @@
 - 项目导航：https://amtopa.com
 - 黑市拍卖行：https://amtopa.com/black-market-auction
 
-> 部署架构：Oracle Cloud 服务器 + Docker（Next.js standalone）+ 1Panel/OpenResty 反向代理 + Let's Encrypt 证书。
+> 部署架构：云服务器 + Docker（Next.js standalone）+ 反向代理 + Let's Encrypt 证书。
 > 详细部署见 [deploy/README.md](deploy/README.md)。
 
 ## 🚀 运行
