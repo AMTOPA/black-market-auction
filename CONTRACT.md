@@ -358,7 +358,7 @@ export async function apiDailyClaimPost(): Promise<DailyClaimResponse>; // POST�
 
 ## 十、v2 扩展说明
 
-项目已按《项目规划.md》迭代到 v2，核心契约（第一~九节）不变，在此之上新增了以下内容：
+项目已迭代到 v2，核心契约（第一~九节）不变，在此之上新增了以下内容：
 
 - **场型随机化**：新增 `RoundType`（standard / theme / noReserve / speed / gala / night），每场结构不再千篇一律。
 - **多身份流派**：新增 `IdentityKind`（dealer 行商 / collector 藏家 / gambler 赌徒 / appraiser 鉴定师）。
