@@ -1,5 +1,6 @@
 // ============ 黑市拍卖行 · 跨轮玩家档案（meta 成长 / 身份 / 图鉴 / 成就） ============
 import { CONFIG } from "./config";
+import { setLastLocalTs } from "./local";
 import { ACHIEVEMENT_DEFS, SET_TEMPLATES, UNLOCK_TABLE } from "./content";
 import type { AlbumEntry, GameState, Profile, Unlocks } from "./types";
 
@@ -50,6 +51,7 @@ export function saveProfile(p: Profile): void {
   if (!store) return;
   try {
     store.setItem(PROFILE_KEY, JSON.stringify(p));
+    setLastLocalTs(Date.now());
   } catch {
     // localStorage 不可用时静默
   }

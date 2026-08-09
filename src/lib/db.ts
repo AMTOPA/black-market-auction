@@ -39,6 +39,11 @@ export function getDb(): DatabaseSync {
       mode TEXT NOT NULL DEFAULT 'endless',
       created_at INTEGER NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS cloud_saves (
+      user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+      payload TEXT NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
     CREATE INDEX IF NOT EXISTS idx_scores_user ON scores(user_id);
     CREATE INDEX IF NOT EXISTS idx_scores_peak ON scores(peak_net DESC);
   `);
@@ -94,6 +99,23 @@ export function getUserDailyClaim(userId: number): { last: string | null; streak
   return { last: row?.last_daily_claim ?? null, streak: row?.daily_streak ?? 0 };
 }
 
+export type CloudSaveRow = { user_id: number; payload: string; updated_at: number };
+
+/** 写入/覆盖某账号的云端存档（last-write-wins，由调用方保证 updatedAt 递增） */
+export function upsertCloudSave(userId: number, payload: string, updatedAt: number): void {
+  getDb()
+    .prepare(
+      `INSERT INTO cloud_saves (user_id, payload, updated_at) VALUES (?, ?, ?)
+       ON CONFLICT(user_id) DO UPDATE SET payload = excluded.payload, updated_at = excluded.updated_at`
+    )
+    .run(userId, payload, updatedAt);
+}
+
+export function getCloudSave(userId: number): CloudSaveRow | undefined {
+  return getDb()
+    .prepare("SELECT user_id, payload, updated_at FROM cloud_saves WHERE user_id = ?")
+    .get(userId) as CloudSaveRow | undefined;
+}
 export function setDailyClaim(userId: number, today: string, streak: number): void {
   getDb()
     .prepare("UPDATE users SET last_daily_claim = ?, daily_streak = ? WHERE id = ?")

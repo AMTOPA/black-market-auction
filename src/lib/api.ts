@@ -110,6 +110,24 @@ export async function apiDailyClaim(): Promise<DailyClaimResponse> {
   return apiFetch(apiUrl("/api/daily-claim"));
 }
 
+export type CloudSavePayload = { game: unknown | null; profile: unknown | null };
+export type CloudSaveGetResponse = { ok: true; payload: CloudSavePayload | null; updatedAt: number };
+export type CloudSavePutResponse = { ok: true; accepted: boolean; updatedAt: number };
+
+export async function apiCloudSaveGet(): Promise<CloudSaveGetResponse> {
+  return apiFetch(apiUrl("/api/cloud-save"));
+}
+
+export async function apiCloudSavePut(body: {
+  game: unknown | null;
+  profile: unknown | null;
+  updatedAt: number;
+}): Promise<CloudSavePutResponse> {
+  return apiFetch(apiUrl("/api/cloud-save"), {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
 export async function apiDailyClaimPost(): Promise<DailyClaimResponse> {
   return apiFetch(apiUrl("/api/daily-claim"), { method: "POST" });
 }

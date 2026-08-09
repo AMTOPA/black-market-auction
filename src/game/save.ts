@@ -2,6 +2,7 @@ import { CONFIG } from "./config";
 import { nextMidnightMs, todayShanghai, previousDate, round100 } from "./format";
 import { nextId } from "./id";
 import { defaultUnlocks } from "./profile";
+import { setLastLocalTs } from "./local";
 import type { AIBidder, GameState, Item, LogEntry, NewsEvent } from "./types";
 
 const SAVE_KEY = "bma_save";
@@ -143,6 +144,8 @@ export function loadGame(): GameState | null {
 
     const state = parsed as GameState;
     if (state.version !== CONFIG.version) return null;
+    // 终局状态已封档并写入档案，不再恢复，避免刷新/换设备后重复结算
+    if (state.phase === "runEnd") return null;
     return sanitizeState(state);
   } catch {
     return null;
@@ -155,6 +158,7 @@ export function saveGame(state: GameState): void {
 
   try {
     store.setItem(SAVE_KEY, JSON.stringify(sanitizeState(state)));
+    setLastLocalTs(Date.now());
   } catch {
     // localStorage may be unavailable or full; gameplay should continue without persistence.
   }
