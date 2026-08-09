@@ -1,4 +1,4 @@
-﻿# 《黑市拍卖行》构建契约（CONTRACT）
+# 《黑市拍卖行》构建契约（CONTRACT）
 
 本文件是并行开发的唯一契约。**先读 `src/game/types.ts` 与 `src/game/engine.ts`（已写完，勿改）**，再实现各自负责的文件。不要修改别人负责的文件。所有文件名与导出名必须与契约完全一致，否则编译失败。
 
@@ -355,3 +355,19 @@ export async function apiDailyClaimPost(): Promise<DailyClaimResponse>; // POST�
 - 中文文案，符合“黑市拍卖行”氛围。
 - 组件无 `any`（除必要的类型断言）。
 - 不引入新依赖（next/react/react-dom/typescript 之外）。
+
+## 十、v2 扩展说明
+
+项目已按《项目规划.md》迭代到 v2，核心契约（第一~九节）不变，在此之上新增了以下内容：
+
+- **场型随机化**：新增 `RoundType`（standard / theme / noReserve / speed / gala / night），每场结构不再千篇一律。
+- **多身份流派**：新增 `IdentityKind`（dealer 行商 / collector 藏家 / gambler 赌徒 / appraiser 鉴定师）。
+- **跨轮档案**：新增 `src/game/profile.ts`，持久化生涯声望、解锁项、套装图鉴与成就。
+- **每日挑战**：新增 `src/game/daily.ts`，每天一组主题目标，完成后发放奖励。
+- **传奇拍品**：拍品新增 `rarity: "legendary"`（真品、高价值、金色描边）。
+- **结算盈亏明细**：`SettlementTotals` / `RoundStats` 补齐出售收入、仓储费、利息、鉴定费、委托奖励、现金利息等分项。
+- **信息卡三选一**：`InfoCardState` 开启后消耗 1 点情报，从真伪 / 买家 / 行情三选一。
+- **现金利息引擎**：留存现金按场计息；债务利息与仓储费可被事件 / 声望修正（`RoundModifiers`）。
+- **AI 结怨**：`aiGrudges` 记录买家对玩家的恩怨，影响后续出价。
+
+**兼容性承诺**：`GameState` / `RoundStats` 等类型的新增字段全部向后兼容——`sanitizeState`（save.ts）对旧档缺失的新字段补默认值。核心字段名契约保持不变，新增字段一律以默认值兼容旧档，旧档无需迁移即可继续游玩。

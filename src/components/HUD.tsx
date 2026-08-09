@@ -1,6 +1,7 @@
 "use client";
 
-import { availableCredit, levelName } from "@/game/engine";
+import { availableCredit, inventoryCap, levelName } from "@/game/engine";
+import { IDENTITY_INFO } from "@/game/content";
 import { CONFIG } from "@/game/config";
 import { formatMoney, formatMoneyCn } from "@/game/format";
 import type { GameState } from "@/game/types";
@@ -78,13 +79,13 @@ export function HUD({ state, onEndRun }: HUDProps) {
         </span>
       </div>
       <span className="hud-sep" aria-hidden="true" />
-      <div className="hud-stat" title={`库存 ${state.inventory.length}/6`}>
+      <div className="hud-stat" title={`库存 ${state.inventory.length}/${inventoryCap(state)}`}>
         <span className="hud-ico">
           <StrokeIcon d="M21 8l-9-5-9 5v8l9 5 9-5V8zM3 8l9 5 9-5M12 13v8" />
         </span>
         <span className="hud-info">
           <span className="hud-label">库存</span>
-          <span className={`hud-value num ${state.inventory.length >= 6 ? "red" : ""}`}>{state.inventory.length}/6</span>
+          <span className={`hud-value num ${state.inventory.length >= inventoryCap(state) ? "red" : ""}`}>{state.inventory.length}/{inventoryCap(state)}</span>
         </span>
       </div>
       <span className="hud-sep" aria-hidden="true" />
@@ -125,6 +126,9 @@ export function HUD({ state, onEndRun }: HUDProps) {
           <span className="hud-value gold">Lv.{state.level}</span>
         </span>
       </div>
+      <span className="identity-chip" title={IDENTITY_INFO[state.identity ?? "dealer"].desc}>
+        {IDENTITY_INFO[state.identity ?? "dealer"].emoji} {IDENTITY_INFO[state.identity ?? "dealer"].label}
+      </span>
       <div className="rep-chip" title="声望：达到 50 入场费 8 折，达到 100 特殊买家必现">
         <span aria-hidden="true">👑</span>
         <span className="num">{state.reputation}</span>

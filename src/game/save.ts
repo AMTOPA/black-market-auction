@@ -1,6 +1,7 @@
 import { CONFIG } from "./config";
-import { nextMidnightMs, todayShanghai } from "./format";
-import { nextId } from "./engine";
+import { nextMidnightMs, todayShanghai, previousDate, round100 } from "./format";
+import { nextId } from "./id";
+import { defaultUnlocks } from "./profile";
 import type { AIBidder, GameState, Item, LogEntry, NewsEvent } from "./types";
 
 const SAVE_KEY = "bma_save";
@@ -28,16 +29,6 @@ function welfareAmount(level: number): number {
     CONFIG.dailyWelfareCap,
     CONFIG.dailyWelfareBase + (safeLevel - 1) * CONFIG.dailyWelfarePerLevel,
   );
-}
-
-function previousDate(date: string): string {
-  const [year, month, day] = date.split("-").map(Number);
-  const previous = new Date(Date.UTC(year, month - 1, day - 1));
-  return [
-    previous.getUTCFullYear(),
-    String(previous.getUTCMonth() + 1).padStart(2, "0"),
-    String(previous.getUTCDate()).padStart(2, "0"),
-  ].join("-");
 }
 
 function loadDaily(): StoredDailyInfo | null {
@@ -98,6 +89,16 @@ export function sanitizeState(state: GameState): GameState {
     lowBuys: typeof oldStats?.lowBuys === "number" ? oldStats.lowBuys : 0,
     appraisals: typeof oldStats?.appraisals === "number" ? oldStats.appraisals : 0,
     realizedProfit: typeof oldStats?.realizedProfit === "number" ? oldStats.realizedProfit : 0,
+    soldRevenue: typeof oldStats?.soldRevenue === "number" ? oldStats.soldRevenue : 0,
+    soldCount: typeof oldStats?.soldCount === "number" ? oldStats.soldCount : 0,
+    specialSales: typeof oldStats?.specialSales === "number" ? oldStats.specialSales : 0,
+    pawnProceeds: typeof oldStats?.pawnProceeds === "number" ? oldStats.pawnProceeds : 0,
+    appraisalCosts: typeof oldStats?.appraisalCosts === "number" ? oldStats.appraisalCosts : 0,
+    interestPaid: typeof oldStats?.interestPaid === "number" ? oldStats.interestPaid : 0,
+    storageFees: typeof oldStats?.storageFees === "number" ? oldStats.storageFees : 0,
+    commissionReward: typeof oldStats?.commissionReward === "number" ? oldStats.commissionReward : 0,
+    interestEarned: typeof oldStats?.interestEarned === "number" ? oldStats.interestEarned : 0,
+    legendaryWon: typeof oldStats?.legendaryWon === "number" ? oldStats.legendaryWon : 0,
   };
 
   return {
@@ -116,6 +117,17 @@ export function sanitizeState(state: GameState): GameState {
     commission: state.commission ?? null,
     roundStats,
     roundModifiers: state.roundModifiers ?? null,
+    roundType: state.roundType ?? "standard",
+    identity: state.identity ?? "dealer",
+    unlocks: { ...defaultUnlocks(), ...(state.unlocks ?? {}) },
+    aiGrudges: state.aiGrudges ?? {},
+    setsCollected: state.setsCollected ?? {},
+    infoCard: state.infoCard ?? null,
+    nightPlayed: Boolean(state.nightPlayed),
+    runProfit: typeof state.runProfit === "number" ? state.runProfit : 0,
+    dailyChallengeDate: typeof state.dailyChallengeDate === "string" ? state.dailyChallengeDate : todayShanghai(),
+    dailyChallengePaid: Boolean(state.dailyChallengePaid),
+    totals: state.totals ?? null,
   };
 }
 

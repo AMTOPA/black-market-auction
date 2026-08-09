@@ -20,6 +20,19 @@ export default function RootLayout({ children }: Readonly<{ children: ReactNode 
       </head>
       <body>
         <div className="app-bg" />
+        <div className="dust" aria-hidden="true">
+          {Array.from({ length: 22 }, (_, i) => (
+            <i
+              key={i}
+              style={{
+                left: `${(i * 37 + 13) % 100}%`,
+                animationDuration: `${14 + (i % 9) * 2}s`,
+                animationDelay: `${-((i * 1.7) % 20)}s`,
+                opacity: 0.25 + ((i * 7) % 5) * 0.12,
+              }}
+            />
+          ))}
+        </div>
         <main>{children}</main>
       </body>
     </html>

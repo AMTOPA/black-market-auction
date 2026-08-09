@@ -32,7 +32,7 @@ export function ItemCard({ item, state, children }: ItemCardProps) {
   const currentMarketValue = itemMarketValue(state, item);
 
   return (
-    <article className="item-card">
+    <article className={`item-card${item.rarity === "legendary" ? " legendary" : ""}`}>
       <div className="item-card-head">
         <ItemIcon category={item.category} size="md" />
         <div className="item-card-title">
@@ -44,6 +44,7 @@ export function ItemCard({ item, state, children }: ItemCardProps) {
       </div>
 
       <div className="item-card-tags">
+        {item.rarity === "legendary" ? <span className="legendary-tag">✦ 传奇</span> : null}
         {item.tags.map((tag) => (
           <span className={tagClass(tag)} key={tag}>
             {tag}

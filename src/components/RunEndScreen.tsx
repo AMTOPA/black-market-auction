@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { formatMoneyCn } from "@/game/format";
-import type { RunResult } from "@/game/types";
+import type { Profile, RunResult } from "@/game/types";
 import { apiSubmitScore, type AuthUser } from "@/lib/api";
 
 export interface RunEndScreenProps {
@@ -13,6 +13,8 @@ export interface RunEndScreenProps {
   onRestart: () => void;
   onHome: () => void;
   onLogin: () => void;
+  gains?: { reputation: number; newUnlocks: string[]; newAchievements: string[]; newSets: string[] } | null;
+  profile?: Profile | null;
 }
 
 type SubmitStatus = "idle" | "submitting" | "success" | "error";
@@ -25,6 +27,8 @@ export default function RunEndScreen({
   onRestart,
   onHome,
   onLogin,
+  gains,
+  profile,
 }: RunEndScreenProps) {
   const [status, setStatus] = useState<SubmitStatus>(submitted ? "success" : "idle");
   const [error, setError] = useState("");
@@ -110,6 +114,17 @@ export default function RunEndScreen({
           </div>
         </div>
       </div>
+
+      {gains ? (
+        <div className="panel fade-in-up" style={{ marginTop: 16 }}>
+          <div className="section-title">本轮收获</div>
+          <div className="stat"><div className="stat-value gold num">+{gains.reputation}</div><div className="stat-label">生涯声望</div></div>
+          {gains.newUnlocks.length > 0 ? <div className="btn-row">{gains.newUnlocks.map((u) => <span className="unlock-chip" key={u}>🔓 {u}</span>)}</div> : null}
+          {gains.newAchievements.length > 0 ? <div className="btn-row">{gains.newAchievements.map((a) => <span className="unlock-chip violet" key={a}>✦ {a}</span>)}</div> : null}
+          {gains.newSets.length > 0 ? <div className="btn-row">{gains.newSets.map((s) => <span className="unlock-chip gold" key={s}>🖼 {s} 集齐</span>)}</div> : null}
+          {gains.newUnlocks.length === 0 && gains.newAchievements.length === 0 && gains.newSets.length === 0 ? <p className="muted small">本局暂无新的解锁，破产也不丢进度——声望会一直累积。</p> : null}
+        </div>
+      ) : null}
 
       <div className="claim-card fade-in-up" aria-live="polite">
         <div className="claim-title">◆ 榜单递交</div>

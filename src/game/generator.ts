@@ -1,8 +1,8 @@
 // ============ 黑市拍卖行 · 拍品 / 买家 / 新闻生成器 ============
 import { CONFIG } from "./config";
-import { nextId } from "./engine";
+import { nextId } from "./id";
 import { chance, pick, pickN, rand, randInt, shuffle, weightedPick } from "./rng";
-import { formatMoney } from "./format";
+import { round100, formatMoney } from "./format";
 import {
   ITEM_NAMES,
   ITEM_ADJECTIVES,
@@ -29,7 +29,6 @@ import type {
 
 const TAGS: Tag[] = ["皇室", "战争遗物", "禁品", "失窃品", "名家", "异域来客"];
 
-const round100 = (n: number) => Math.max(0, Math.round(n / 100) * 100);
 const categories = () => CONFIG.categories as unknown as Category[];
 
 function levelIndex(level: number): number {
@@ -105,18 +104,26 @@ function pickSet(usedThisAuction: boolean): { used: boolean; setInfo?: Item["set
   };
 }
 
-export function generateAuctionItems(level: number, market: Record<Category, number>, count: number, auctionNumber: number): Item[] {
+export function generateAuctionItems(
+  level: number,
+  market: Record<Category, number>,
+  count: number,
+  auctionNumber: number,
+  opts?: { categories?: Category[]; valueMult?: number; legendaryBoost?: boolean },
+): Item[] {
   const items: Item[] = [];
   let setUsed = false;
   for (let i = 0; i < count; i += 1) {
     const range = CONFIG.valueRanges[levelIndex(level)];
-    const category = pick(categories());
-    const baseValue = round100(randInt(range[0], range[1]));
-    const authenticity = rollAuthenticity(level);
+    const category = opts?.categories && opts.categories.length > 0 ? pick(opts.categories) : pick(categories());
+    const baseValue = round100(randInt(range[0], range[1]) * (opts?.valueMult ?? 1));
+    const legendary = chance(opts?.legendaryBoost ? CONFIG.legendaryChance * 3 : CONFIG.legendaryChance);
+    const authenticity: Item["authenticity"] = legendary ? "真品" : rollAuthenticity(level);
     const condition = rollCondition();
     const conditionMult = CONFIG.conditionMult[condition];
     const authMult = CONFIG.authMult[authenticity];
-    const trueValue = round100(baseValue * conditionMult * authMult);
+    const legendMult = legendary ? rand(CONFIG.legendaryValueMultMin, CONFIG.legendaryValueMultMax) : 1;
+    const trueValue = round100(baseValue * conditionMult * authMult * legendMult);
 
     const median = round100(baseValue * rand(0.85, 1.15));
     const width = CONFIG.estimateWidthByLevel[levelIndex(level)];
@@ -136,7 +143,8 @@ export function generateAuctionItems(level: number, market: Record<Category, num
       condition,
       conditionMult,
       authMult,
-      tags: rollTags(level),
+      rarity: legendary ? "legendary" : undefined,
+      tags: legendary ? Array.from(new Set([...rollTags(level), "名家"])) : rollTags(level),
       setInfo: setRoll.setInfo,
       marketAtAcquire: market[category] ?? 1,
       trueValue,
@@ -217,8 +225,13 @@ export function rollSpecialBuyer(force = false): SpecialBuyer | null {
   };
 }
 
+export interface AiPrepOpts {
+  nightBluff?: boolean;
+  grudgeMult?: number;
+}
+
 /** 引擎在每件拍品开始时调用，重置买家对本件的估值与意图 */
-export function aiPrepareItem(bidder: AIBidder, item: Item, marketMult: number, level: number): Partial<AIBidder> {
+export function aiPrepareItem(bidder: AIBidder, item: Item, marketMult: number, level: number, opts?: AiPrepOpts): Partial<AIBidder> {
   const profile = AI_PROFILES[bidder.kind];
   let prefMult = bidder.preferred.includes(item.category)
     ? bidder.kind === "收藏家"
@@ -229,13 +242,15 @@ export function aiPrepareItem(bidder: AIBidder, item: Item, marketMult: number, 
     : 1.0;
   if (bidder.kind === "收藏家" && item.setInfo) prefMult = 1.5;
 
-  let valuation = Math.round(item.trueValue * marketMult * prefMult * (1 + (bidder.risk * 2 - 1) * 0.25));
+  const grudgeMult = opts?.grudgeMult ?? 1;
+  let valuation = Math.round(item.trueValue * marketMult * prefMult * grudgeMult * (1 + (bidder.risk * 2 - 1) * 0.25));
   const width = (item.estimateHigh - item.estimateLow) / Math.max(1, item.estimateMedian);
   if (bidder.kind === "赌徒" && width > 0.8) valuation = Math.round(valuation * 1.3);
 
   // 黄牛只追明显低估
   const wants = bidder.kind === "黄牛" ? valuation >= item.estimateMedian * 1.15 : true;
-  const bluffing = bidder.kind === "老狐狸" && level >= 2 && chance(profile.bluffChance);
+  const bluffChance = opts?.nightBluff ? CONFIG.nightBluffChance : profile.bluffChance;
+  const bluffing = bidder.kind === "老狐狸" && level >= 2 && chance(bluffChance);
   const bluffCeiling = Math.min(valuation * 0.9, bidder.budget * 0.55);
 
   return {
@@ -247,13 +262,23 @@ export function aiPrepareItem(bidder: AIBidder, item: Item, marketMult: number, 
   };
 }
 
-/** 情报揭示：不直接暴露精确真值 */
-export function intelReveal(item: Item, action: IntelAction, bidders: AIBidder[], marketMult: number): string {
+/** 情报揭示：不直接暴露精确真值（真伪判定为概率式，accuracy 越高越准） */
+export function intelReveal(
+  item: Item,
+  action: IntelAction,
+  bidders: AIBidder[],
+  marketMult: number,
+  opts?: { accuracy?: number },
+): string {
   switch (action) {
     case "authenticity": {
-      if (item.authenticity === "真品") return "多方线索指向真品，但仍有高仿的可能。";
-      if (item.authenticity === "高仿") return "有较高概率是高仿，需要谨慎对待。";
-      return "多条线索指向赝品，风险极高。";
+      const accuracy = opts?.accuracy ?? CONFIG.intelAccuracyBase;
+      if (Math.random() < accuracy) {
+        if (item.authenticity === "真品") return "多方线索指向真品，但仍有高仿的可能。";
+        if (item.authenticity === "高仿") return "有较高概率是高仿，需要谨慎对待。";
+        return "多条线索指向赝品，风险极高。";
+      }
+      return "线索相互矛盾，难以判断真伪，建议结合其他情报再作决定。";
     }
     case "estimate": {
       const low = round100(item.trueValue * 0.85);

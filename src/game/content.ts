@@ -1,5 +1,5 @@
 ﻿// ============ 黑市拍卖行 · 文本与角色内容池 ============
-import type { AIKind, Category } from "./types";
+import type { AIKind, Category, IdentityKind, RoundType } from "./types";
 
 export const ITEM_NAMES: Record<Category, string[]> = {
   绘画: ["无名港口", "雾中灯塔", "雨夜归舟", "胭脂雪", "孤城暮鸦", "春江旧梦", "月下听琴", "长街残照", "深院海棠", "北地秋猎", "烟岚十二峰", "金陵夜宴", "白马入关", "寒塘鹤影", "故园梨花", "赤壁余烬", "海上蜃楼", "空山行旅"],
@@ -131,3 +131,105 @@ export const SPECIAL_BUYERS: { name: string; emoji: string; blurb: string }[] = 
 ];
 
 export const AI_KIND_LABEL: Record<AIKind, string> = { 收藏家: "收藏家", 黄牛: "黄牛", 赌徒: "赌徒", 老狐狸: "老狐狸", 富豪: "富豪" };
+
+
+// ============ v2 扩展：场型 / 身份 / 客户 / 技能 / 成就 ============
+
+export const ROUND_TYPE_INFO: Record<RoundType, { label: string; tagline: string }> = {
+  standard: { label: "标准场", tagline: "按部就班，货真价实" },
+  theme: { label: "主题专场", tagline: "今夜只上特定类别的珍品" },
+  noReserve: { label: "无底价场", tagline: "起拍价极低，捡漏与接盘一线之隔" },
+  speed: { label: "速拍场", tagline: "买家行色匆匆，节奏快一倍" },
+  gala: { label: "贵宾场", tagline: "珍品云集，豪客云集" },
+  night: { label: "午夜夜场", tagline: "估价保密，暗流涌动" },
+};
+
+export const IDENTITY_INFO: Record<IdentityKind, { label: string; desc: string; emoji: string }> = {
+  dealer: { label: "倒爷", desc: "快进快出 · 卖出价 +10%", emoji: "\u{1F4BC}" },
+  collector: { label: "收藏家", desc: "套装溢价 +50% · 库存 +2 · 套件概率翻倍", emoji: "\u{1F4FF}" },
+  gambler: { label: "赌徒", desc: "行情波动 +50% · 启动金 +50%（附 1.2 万债）", emoji: "\u{1F3B2}" },
+  appraiser: { label: "掌眼", desc: "每场情报 +1 · 鉴定费半价 · 真伪判定更准", emoji: "\u{1F50D}" },
+};
+
+export interface ClientDef {
+  id: string;
+  name: string;
+  emoji: string;
+  blurb: string;
+}
+export const CLIENT_DEFS: ClientDef[] = [
+  { id: "client_curator", name: "旧藏室策展人", emoji: "\u{1F5C4}", blurb: "愿为缺失的展位高价补全旧藏" },
+  { id: "client_moneyhouse", name: "地下钱庄掌柜", emoji: "\u{1F3E6}", blurb: "可谈更低利息，也收稀有抵押物" },
+  { id: "client_tycoon", name: "巨贾代理人", emoji: "\u{1F574}", blurb: "不差钱，只差能压场子的真家伙" },
+];
+
+export interface SkillDef {
+  id: string;
+  name: string;
+  emoji: string;
+  desc: string;
+}
+export const SKILL_DEFS: SkillDef[] = [
+  { id: "skill_appraiser2", name: "火眼金睛", emoji: "\u{1F441}", desc: "真伪判定的把握更高" },
+  { id: "skill_bluffreader", name: "识破诈唬", emoji: "\u{1FA9E}", desc: "能看穿老狐狸的抬价伎俩" },
+];
+
+export interface AchievementDef {
+  id: string;
+  label: string;
+  desc: string;
+  check: string;
+}
+export const ACHIEVEMENT_DEFS: AchievementDef[] = [
+  { id: "first_blood", label: "第一桶金", desc: "单场净赚 1 万以上", check: "profit10000" },
+  { id: "streak3", label: "三连旺", desc: "连续 3 场盈利", check: "streak3" },
+  { id: "set_first", label: "成套收藏家", desc: "集齐第一套古董套装", check: "set1" },
+  { id: "legendary_first", label: "天降传奇", desc: "入手一件传奇拍品", check: "legendary1" },
+  { id: "bankrupt_first", label: "破产重生", desc: "经历第一次破产清算", check: "bankrupt1" },
+  { id: "sprint_win", label: "竞速登顶", desc: "完成一次竞速挑战", check: "sprint1" },
+  { id: "night_first", label: "夜行者", desc: "参加一次午夜夜场", check: "night1" },
+  { id: "million", label: "百万身家", desc: "净资产峰值突破 100 万", check: "peak1m" },
+  { id: "raise_master", label: "单场豪赚", desc: "单场净赚 5 万以上", check: "profit50000" },
+];
+
+/** 身份数值效果（引擎/生成器读取） */
+export const IDENTITY_EFFECTS: Record<
+  IdentityKind,
+  {
+    sellBonus: number; // 卖出价加成
+    appraiseFeeMult: number; // 鉴定费倍率
+    setBonusMult: number; // 套装溢价倍率
+    setChanceMult: number; // 套件出现概率倍率
+    marketVolMult: number; // 市场波动倍率
+    intelBonus: number; // 每场额外情报
+    intelAccuracy: number; // 真伪判定准确率（>0 覆盖默认）
+    startCashMult: number; // 起手资金倍率
+    startDebt: number; // 起手债务
+    storageCapBonus: number; // 库存上限加成
+  }
+> = {
+  dealer: { sellBonus: 0.1, appraiseFeeMult: 1, setBonusMult: 1, setChanceMult: 1, marketVolMult: 1, intelBonus: 0, intelAccuracy: 0, startCashMult: 1, startDebt: 0, storageCapBonus: 0 },
+  collector: { sellBonus: 0, appraiseFeeMult: 1, setBonusMult: 1.5, setChanceMult: 2, marketVolMult: 1, intelBonus: 0, intelAccuracy: 0, startCashMult: 1, startDebt: 0, storageCapBonus: 2 },
+  gambler: { sellBonus: 0, appraiseFeeMult: 1, setBonusMult: 1, setChanceMult: 1, marketVolMult: 1.5, intelBonus: 0, intelAccuracy: 0, startCashMult: 1.5, startDebt: 12000, storageCapBonus: 0 },
+  appraiser: { sellBonus: 0, appraiseFeeMult: 0.5, setBonusMult: 1, setChanceMult: 1, marketVolMult: 1, intelBonus: 1, intelAccuracy: 0.9, startCashMult: 1, startDebt: 0, storageCapBonus: 0 },
+};
+
+/** 生涯声望解锁表（按 reputation 达标逐条生效，幂等） */
+export const UNLOCK_TABLE: Array<{
+  rep: number;
+  type: "client" | "skill" | "bank" | "night" | "startCash";
+  id?: string;
+  level?: number;
+  boost?: number;
+  label: string;
+}> = [
+  { rep: 30, type: "client", id: "client_curator", label: "解锁客户：旧藏室策展人" },
+  { rep: 60, type: "client", id: "client_moneyhouse", label: "解锁客户：地下钱庄掌柜" },
+  { rep: 100, type: "skill", id: "skill_appraiser2", label: "解锁技能：火眼金睛" },
+  { rep: 140, type: "bank", level: 2, label: "钱庄升二级：利息上限 +5" },
+  { rep: 180, type: "skill", id: "skill_bluffreader", label: "解锁技能：识破诈唬" },
+  { rep: 220, type: "night", label: "解锁场型：午夜夜场" },
+  { rep: 280, type: "bank", level: 3, label: "钱庄升三级：利息上限 +10" },
+  { rep: 360, type: "client", id: "client_tycoon", label: "解锁客户：巨贾代理人" },
+  { rep: 500, type: "startCash", boost: 30000, label: "启动资金 +3 万" },
+];

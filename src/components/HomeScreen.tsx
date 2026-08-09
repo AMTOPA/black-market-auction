@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import type { GameMode, GameState } from "@/game/types";
+import type { GameMode, GameState, IdentityKind, Profile } from "@/game/types";
+import type { DailyChallenge } from "@/game/daily";
+import { IDENTITY_INFO } from "@/game/content";
 import { formatClock, formatMoneyCn } from "@/game/format";
 import type { GuestDailyInfo } from "@/game/save";
 import type { AuthUser } from "@/lib/api";
@@ -30,6 +32,9 @@ export interface HomeScreenProps {
   onToggleMute: () => void;
   muted: boolean;
   onEndRun?: () => void;
+  profile?: Profile | null;
+  onIdentityChange?: (id: IdentityKind) => void;
+  challenge?: DailyChallenge | null;
 }
 
 export default function HomeScreen({
@@ -37,6 +42,9 @@ export default function HomeScreen({
   user,
   guestDaily,
   serverClaim,
+  profile,
+  challenge,
+  onIdentityChange,
   onStartNew,
   onContinue,
   onLeaderboard,
@@ -74,6 +82,12 @@ export default function HomeScreen({
 
   const hasActiveRun = Boolean(game && game.phase !== "runEnd");
   const canClaim = Boolean(game && daily && !daily.claimed && (!user || serverClaim?.ok));
+  const unlockCount =
+    (profile?.unlocks?.clients?.length ?? 0) +
+    (profile?.unlocks?.skills?.length ?? 0) +
+    ((profile?.unlocks?.bankLevel ?? 1) - 1) +
+    (profile?.unlocks?.nightAuction ? 1 : 0) +
+    (profile?.unlocks?.startCashBoost ? 1 : 0);
 
   const handleNewGame = async () => {
     if (game) {
@@ -126,6 +140,20 @@ export default function HomeScreen({
           </div>
         )}
 
+        <div className="section-title">选择经营身份</div>
+        <div className="identity-grid">
+          {(Object.keys(IDENTITY_INFO) as IdentityKind[]).map((id) => {
+            const info = IDENTITY_INFO[id];
+            const active = (profile?.identity ?? "dealer") === id;
+            return (
+              <button key={id} type="button" className={`identity-card${active ? " active" : ""}`} onClick={() => onIdentityChange?.(id)}>
+                <span className="identity-emoji">{info.emoji}</span>
+                <span className="identity-name">{info.label}</span>
+                <span className="identity-desc">{info.desc}</span>
+              </button>
+            );
+          })}
+        </div>
         <div className="mode-tabs" role="group" aria-label="经营模式选择" style={{ marginTop: 14 }}>
           <button
             type="button"
@@ -206,6 +234,16 @@ export default function HomeScreen({
         )}
       </div>
 
+      {challenge ? (
+        <div className="daily-card fade-in-up">
+          <div className="daily-date">{challenge.date}</div>
+          <div className="daily-title">🎯 每日挑战 · {challenge.title}</div>
+          <div className="daily-desc">{challenge.desc}</div>
+          <div className="daily-reward">奖励 ¥{formatMoneyCn(challenge.reward)} · 声望 +{challenge.rep}</div>
+          {profile?.dailyDone?.date === challenge.date && profile.dailyDone.done ? <div className="daily-stamp">已完成</div> : null}
+        </div>
+      ) : null}
+
       {game && (
         <>
           <div className="home-stats fade-in-up">
@@ -245,6 +283,27 @@ export default function HomeScreen({
             </div>
           )}
         </>
+      )}
+
+      {profile && (
+        <div className="panel fade-in-up">
+          <div className="section-title">生涯账簿 · {IDENTITY_INFO[profile.identity].label}</div>
+          <div className="profile-grid">
+            <div className="stat"><div className="stat-value gold num rep-big">{profile.reputation}</div><div className="stat-label">生涯声望</div></div>
+            <div className="stat"><div className="stat-value num">{unlockCount}</div><div className="stat-label">已解锁项</div></div>
+            <div className="stat"><div className="stat-value gold num">{Object.keys(profile.achievements ?? {}).length}</div><div className="stat-label">成就</div></div>
+            <div className="stat"><div className="stat-value green num">¥{formatMoneyCn(profile.totalProfit)}</div><div className="stat-label">生涯总盈利</div></div>
+          </div>
+          <div className="album-rows">
+            {profile.album.map((a) => (
+              <div className="album-row" key={a.setId}>
+                <span className="album-name">{a.setName}</span>
+                <div className="album-bar"><div className="album-fill" style={{ width: `${Math.min(100, Math.round((a.collected / Math.max(1, a.total)) * 100))}%` }} /></div>
+                <span className="album-num num">{a.collected}/{a.total}</span>
+              </div>
+            ))}
+          </div>
+        </div>
       )}
 
       <p className="center faint tiny">不问来路，不留收据。请保管好你的筹码与秘密。</p>

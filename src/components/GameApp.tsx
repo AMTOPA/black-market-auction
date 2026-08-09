@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -17,8 +17,13 @@ import {
   availableCredit,
   entryFee,
   levelName,
+  openInfoCard,
+  closeInfoCard,
+  chooseInfoCard,
 } from "@/game/engine";
 import { loadGame, saveGame, clearSave, guestDailyInfo, guestClaimDaily } from "@/game/save";
+import { loadProfile, saveProfile, defaultProfile, finalizeRun } from "@/game/profile";
+import { todayChallenge } from "@/game/daily";
 import {
   apiMe,
   apiLogin,
@@ -29,11 +34,12 @@ import {
   type AuthUser,
 } from "@/lib/api";
 import { initAudio, setMuted, isMuted, playClick, playBid, playCoin, playGavel, playIntel, playError } from "@/game/audio";
-import type { GameState, GameMode, BidChoice, IntelAction, ItemAction } from "@/game/types";
+import type { GameState, GameMode, BidChoice, IntelAction, ItemAction, IdentityKind, Profile, InfoCardChoice } from "@/game/types";
 import HomeScreen from "./HomeScreen";
 import AuthModal from "./AuthModal";
 import LeaderboardScreen from "./LeaderboardScreen";
 import RunEndScreen from "./RunEndScreen";
+import LevelUpToast from "./LevelUpToast";
 import AuctionScreen from "./AuctionScreen";
 import SettlementScreen from "./SettlementScreen";
 
@@ -50,11 +56,17 @@ export default function GameApp() {
   const [muted, setMutedState] = useState(false);
   const audioReady = useRef(false);
   const prevDealRef = useRef<string | null>(null);
+  const finalizedRef = useRef(false);
+  const [gains, setGains] = useState<{ reputation: number; newUnlocks: string[]; newAchievements: string[]; newSets: string[] } | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [levelToast, setLevelToast] = useState<{ key: number; title: string; subtitle?: string } | null>(null);
+  const prevLevelRef = useRef(1);
 
   // 挂载：读存档 + 登录态 + 音量
   useEffect(() => {
     const saved = loadGame();
     setGame(saved);
+    setProfile(loadProfile());
     setMutedState(isMuted());
     apiMe()
       .then((r) => {
@@ -81,11 +93,32 @@ export default function GameApp() {
     if (game) saveGame(game);
   }, [game]);
 
+  // 终局：结算档案（每轮一次）
+  useEffect(() => {
+    if (game?.phase === "runEnd" && profile && !finalizedRef.current) {
+      finalizedRef.current = true;
+      const res = finalizeRun(profile, game, Boolean(game.dailyChallengePaid));
+      saveProfile(res.profile);
+      setProfile(res.profile);
+      setGains(res.gains);
+      // 本轮已封档：清掉进行中存档，避免刷新页面后重复结算
+      clearSave();
+    }
+  }, [game, profile]);
+
+  // 市场升级提示
+  useEffect(() => {
+    if (game && game.phase === "bidding" && game.level > (prevLevelRef.current ?? 1)) {
+      setLevelToast({ key: Date.now(), title: "市场升级", subtitle: `进入「${levelName(game.level)}」` });
+    }
+    prevLevelRef.current = game?.level ?? 1;
+  }, [game]);
+
   // 音效联动：成交 / 收钱
   useEffect(() => {
     if (!game) return;
     const deal = game.deal ?? null;
-const dealKey = deal ? `${deal.item.id}:${deal.price}` : null;
+    const dealKey = deal ? `${deal.item.id}:${deal.price}` : null;
     if (dealKey && dealKey !== prevDealRef.current) {
       playGavel();
       if (deal?.wonBy === "player") playCoin();
@@ -102,16 +135,22 @@ const dealKey = deal ? `${deal.item.id}:${deal.price}` : null;
   const startNewRun = useCallback((mode: GameMode = "endless") => {
     playClick();
     clearSave();
-    setGame(beginRound(newGame({ mode })));
+    finalizedRef.current = false;
+    setGains(null);
+    setGame(beginRound(newGame({ mode, identity: profile?.identity ?? "dealer", startCashBoost: profile?.unlocks?.startCashBoost ?? 0 })));
     setSubmitted(false);
     setView("play");
-  }, []);
+  }, [profile]);
 
   const continueRun = useCallback(() => {
     playClick();
+    if (game?.phase !== "runEnd") {
+      finalizedRef.current = false;
+      setGains(null);
+    }
     setSubmitted(false);
     setView("play");
-  }, []);
+  }, [game?.phase]);
 
   const handleBid = useCallback((choice: BidChoice) => {
     playBid();
@@ -151,6 +190,22 @@ const dealKey = deal ? `${deal.item.id}:${deal.price}` : null;
   const handleEndRun = useCallback(() => {
     playGavel();
     setGame((s) => (s ? forceEndRun(s, "主动结束本轮") : s));
+  }, []);
+
+  const handleOpenInfoCard = useCallback(() => setGame((s) => (s ? openInfoCard(s) : s)), []);
+  const handleChooseInfoCard = useCallback((c: InfoCardChoice) => {
+    playIntel();
+    setGame((s) => (s ? chooseInfoCard(s, c) : s));
+  }, []);
+  const handleCloseInfoCard = useCallback(() => setGame((s) => (s ? closeInfoCard(s) : s)), []);
+
+  const handleIdentityChange = useCallback((id: IdentityKind) => {
+    setProfile((p) => {
+      const np = p ? { ...p, identity: id } : { ...defaultProfile(), identity: id };
+      saveProfile(np);
+      return np;
+    });
+    playClick();
   }, []);
 
   const handleClaimDaily = useCallback(async () => {
@@ -210,6 +265,9 @@ const dealKey = deal ? `${deal.item.id}:${deal.price}` : null;
         onDealContinue={handleDealContinue}
         onAiTick={handleAiTick}
         onEndRun={handleEndRun}
+        onOpenInfoCard={handleOpenInfoCard}
+        onChooseInfoCard={handleChooseInfoCard}
+        onCloseInfoCard={handleCloseInfoCard}
       />
     );
   } else if (view === "play" && game && phase === "settlement") {
@@ -232,6 +290,8 @@ const dealKey = deal ? `${deal.item.id}:${deal.price}` : null;
         onRestart={startNewRun}
         onHome={() => { playClick(); setView("home"); }}
         onLogin={() => setAuthOpen(true)}
+        gains={gains}
+        profile={profile}
       />
     );
   } else {
@@ -252,19 +312,26 @@ const dealKey = deal ? `${deal.item.id}:${deal.price}` : null;
         onToggleMute={handleToggleMute}
         muted={muted}
         onEndRun={handleEndRun}
+        challenge={todayChallenge()}
+        profile={profile}
+        onIdentityChange={handleIdentityChange}
       />
     );
   }
 
   return (
     <div className="app-wrap">
-      <div className="app-bg" />
       {body}
       {authOpen && (
         <div className="overlay" onClick={(e) => { if (e.target === e.currentTarget) { playClick(); setAuthOpen(false); } }}>
           <AuthModal onClose={() => { playClick(); setAuthOpen(false); }} onAuthed={handleAuthed} />
         </div>
       )}
+      {levelToast ? (
+        <div className="toast-stack">
+          <LevelUpToast key={levelToast.key} title={levelToast.title} subtitle={levelToast.subtitle} onDone={() => setLevelToast(null)} />
+        </div>
+      ) : null}
     </div>
   );
 }

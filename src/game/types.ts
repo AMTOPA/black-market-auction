@@ -54,6 +54,17 @@ export interface RoundStats {
   lowBuys: number; // 以低于中位数 targetRatio 拍下的件数
   appraisals: number; // 本场鉴定次数
   realizedProfit: number; // 本场卖出 + 特殊出售实现的利润
+  // ---- v2：本场盈亏明细 ----
+  soldRevenue: number; // 普通出售收入
+  soldCount: number; // 本场售出件数（普通+特殊买家）
+  specialSales: number; // 特殊买家收购收入
+  pawnProceeds: number; // 抵押净入账（抵押-赎回）
+  appraisalCosts: number; // 鉴定费支出
+  interestPaid: number; // 债务利息支出
+  storageFees: number; // 仓储费支出
+  commissionReward: number; // 委托奖励
+  interestEarned: number; // 留存现金利息收入
+  legendaryWon: number; // 拍下传奇拍品件数
 }
 
 /** 本场临时修正（随机事件/声望产生的倍率），每场开始时重置 */
@@ -62,6 +73,12 @@ export interface RoundModifiers {
   storageMult?: number; // 仓储费倍率（默认 1）
   specialBuyerGuaranteed?: boolean; // 结算必现特殊买家
   bidderBudgetMult?: number; // 买家预算倍率（默认 1）
+  speedTickMs?: number; // 速拍场 AI 表态间隔（ms）
+  // ---- v2：场型 / 事件修正 ----
+  startBidRatio?: number; // 本场起拍比例（默认 CONFIG.startBidRatio）
+  roundTypeOverride?: RoundType; // 事件强制场型
+  legendaryBoost?: boolean; // 传奇拍品概率提升
+  intelBonus?: number; // 额外情报点
 }
 
 /** 公开线索。signal/strength 对玩家隐藏，仅引擎使用。 */
@@ -95,6 +112,7 @@ export interface Item {
   conditionMult: number;
   authMult: number; // 真品1 / 高仿0.45 / 赝品0.08
   tags: Tag[];
+  rarity?: "legendary"; // 传奇拍品（金色描边、真品、高价值）
   setInfo?: SetInfo;
   marketAtAcquire: number; // 入手时的该类目市场倍率（仅展示参考）
   trueValue: number; // baseValue * conditionMult * authMult（不含市场）
@@ -173,6 +191,8 @@ export interface SettlementTotals {
   appraisalCosts: number;
   pawnProceeds: number;
   specialSales: number;
+  commissionReward: number; // 委托 + 每日挑战奖励（结算页预估）
+  interestEarned: number; // 留存现金利息（结算页预估）
 }
 
 export interface GameState {
@@ -205,6 +225,17 @@ export interface GameState {
   commission: Commission | null;
   roundStats: RoundStats;
   roundModifiers: RoundModifiers | null;
+  // ---- v2：场型 / 身份 / meta / 图鉴 / AI 记忆 ----
+  roundType: RoundType;
+  identity: IdentityKind;
+  unlocks: Unlocks;
+  aiGrudges: Record<string, number>;
+  setsCollected: Record<string, number[]>;
+  infoCard: InfoCardState | null;
+  nightPlayed: boolean;
+  runProfit: number; // 本轮累计净盈亏（按场次累加）
+  dailyChallengeDate: string; // 本轮启动时的上海日期 YYYY-MM-DD
+  dailyChallengePaid: boolean; // 每日挑战奖励是否已在本轮发放（每轮一次）
   // 本轮进行中
   itemsThisRound: Item[];
   itemIndex: number; // 0-based，指向当前拍品
@@ -235,3 +266,56 @@ export type RunResult = {
   mode: GameMode;
   score: number; // 用于排行榜：endless→峰值净资产，sprint→最终净资产
 };
+
+
+// ============ v2 扩展：场型 / 身份 / 信息卡 / meta 解锁 / 图鉴 / 档案 ============
+
+/** 场型：standard 标准 / theme 主题场 / noReserve 无底价场 / speed 速拍场 / gala 贵宾场 / night 午夜夜场 */
+export type RoundType = "standard" | "theme" | "noReserve" | "speed" | "gala" | "night";
+
+/** 经营身份（多流派） */
+export type IdentityKind = "dealer" | "collector" | "gambler" | "appraiser";
+
+/** 信息卡三选一 */
+export type InfoCardChoice = "authenticity" | "buyer" | "trend";
+
+/** 信息卡状态（开启后由玩家三选一，消耗 1 点情报） */
+export interface InfoCardState {
+  itemId: string;
+  options: InfoCardChoice[];
+}
+
+/** 跨轮 meta 解锁项 */
+export interface Unlocks {
+  clients: string[]; // 已解锁客户 id（扩充特殊买家池）
+  skills: string[]; // 已解锁技能 id（appraiser2 / bluffreader）
+  bankLevel: number; // 钱庄等级（利息上限）
+  startCashBoost: number; // 起手资金加成
+  nightAuction: boolean; // 已解锁午夜夜场
+}
+
+/** 套装图鉴条目 */
+export interface AlbumEntry {
+  setId: number;
+  setName: string;
+  collected: number; // 已收集件数
+  total: number;
+}
+
+/** 玩家档案（跨轮持久化，见 profile.ts） */
+export interface Profile {
+  version: number;
+  identity: IdentityKind;
+  reputation: number; // 生涯声望（meta 货币）
+  unlocks: Unlocks;
+  album: AlbumEntry[];
+  achievements: Record<string, number>; // 成就 id -> 解锁时间戳
+  totalAuctions: number;
+  totalProfit: number;
+  bestPeak: number;
+  bankruptcies: number;
+  runsCompleted: number;
+  legendaryWon: number;
+  setsCompletedTotal: number;
+  dailyDone: { date: string; done: boolean } | null; // 今日挑战完成状态
+}

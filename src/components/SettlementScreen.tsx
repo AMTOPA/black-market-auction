@@ -1,11 +1,12 @@
 "use client";
 
-import { computeNetAssets, entryFee, itemMarketValue, judgeCommission } from "@/game/engine";
+import { computeNetAssets, entryFee, inventoryCap, itemMarketValue, judgeCommission } from "@/game/engine";
 import { formatMoney, formatMoneyCn, formatMult } from "@/game/format";
 import type { GameState, ItemAction } from "@/game/types";
 
 import { ItemCard } from "./ItemCard";
 import { useConfirm } from "./ConfirmDialog";
+import BreakdownCard from "./BreakdownCard";
 
 export interface SettlementScreenProps {
   state: GameState;
@@ -60,16 +61,32 @@ export function SettlementScreen({ state, onAction, onSpecial, onNextRound, onHo
             <div className="stat-label">债务</div>
           </div>
           <div className="stat">
-            <div className={`stat-value num ${state.inventory.length >= 6 ? "red" : "violet"}`}>
-              {state.inventory.length}/6
+            <div className={`stat-value num ${state.inventory.length >= inventoryCap(state) ? "red" : "violet"}`}>
+              {state.inventory.length}/{inventoryCap(state)}
             </div>
             <div className="stat-label">库存占用</div>
+          </div>
+          <div className="stat">
+            <div className="stat-value gold num">{state.streak}</div>
+            <div className="stat-label">连续盈利</div>
+          </div>
+          <div className="stat">
+            <div className={`stat-value run-profit num ${state.runProfit >= 0 ? "green" : "red"}`}>
+              {state.runProfit >= 0 ? "+" : "-"}{formatMoney(Math.abs(state.runProfit))}
+            </div>
+            <div className="stat-label">本轮累计</div>
           </div>
         </div>
         <div className="notice" style={{ margin: "12px 0 0" }}>
           下一场入场费为 <strong className="num">¥{formatMoney(nextEntryFee)}</strong>。进入下一场时还会结算仓储费、债务利息与到期抵押品。
         </div>
       </section>
+
+      {state.totals ? (
+        <div style={{ marginTop: 16 }}>
+          <BreakdownCard totals={state.totals} />
+        </div>
+      ) : null}
 
       {state.settlementEvent || state.commission ? (
         <div style={{ marginTop: 16 }}>

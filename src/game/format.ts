@@ -62,3 +62,19 @@ export function nextMidnightMs(): number {
   const nextMidnightUtc = Date.UTC(year, month - 1, day + 1) - SHANGHAI_OFFSET_MS;
   return Math.max(0, nextMidnightUtc - Date.now());
 }
+
+/** 四舍五入到百（游戏内货币最小粒度，全项目共用） */
+export function round100(n: number): number {
+  return Math.max(0, Math.round(n / 100) * 100);
+}
+
+/** 昨天的上海日期 YYYY-MM-DD（供每日补助/每日挑战共用） */
+export function previousDate(date: string): string {
+  const [year, month, day] = date.split("-").map(Number);
+  const previous = new Date(Date.UTC(year, month - 1, day - 1));
+  return [
+    previous.getUTCFullYear(),
+    String(previous.getUTCMonth() + 1).padStart(2, "0"),
+    String(previous.getUTCDate()).padStart(2, "0"),
+  ].join("-");
+}

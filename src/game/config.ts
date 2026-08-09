@@ -75,5 +75,31 @@ export const CONFIG = {
   repDiscountAt: 50, // 声望达到后入场费 8 折
   repDiscountRate: 0.2,
   repSpecialAt: 100, // 声望达到后特殊买家必现
+
+  // ---- v2 扩展：场型 / 利息 / 传奇 / 身份 / 解锁 / 成就 / 每日挑战 ----
+  roundTypeWeights: [
+    // [standard, theme, noReserve, speed, gala, night] —— 低等级 / 高等级
+    [46, 14, 12, 12, 10, 6],
+    [42, 16, 12, 12, 12, 6],
+  ] as const,
+  themeCategoryCount: [2, 3] as const, // 主题场类别数区间
+  noReserveStartRatio: 0.1, // 无底价场起拍比例
+  speedTickMs: 320, // 速拍场 AI 表态间隔
+  galaValueBoost: 1.6, // 贵宾场拍品价值倍率
+  galaBudgetMult: 1.5, // 贵宾场买家预算倍率
+  nightBluffChance: 0.55, // 夜场诈唬概率（老狐狸基础 0.35）
+  nightEstimateHidden: true, // 夜场隐藏估价
+  interestPerCash: 500, // 每留存 500 现金日结利息 +1
+  interestBaseCap: 5, // 基础利息上限/场
+  interestBankCapStep: 5, // 钱庄每级增加的上限
+  legendaryChance: 0.02, // 传奇拍品基础概率
+  legendaryValueMultMin: 2.0,
+  legendaryValueMultMax: 3.5,
+  intelAccuracyBase: 0.72, // 情报真伪判定基础准确率
+  intelAccuracySkill: 0.9, // 火眼金睛技能准确率
+  infoCardCost: 1, // 信息卡消耗情报
+  dailyChallengeReward: 8000,
+  dailyChallengeRep: 5,
+  dailyChallengeRequiresLogin: false,
 };
 

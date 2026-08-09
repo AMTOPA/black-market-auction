@@ -3,11 +3,13 @@
 import { useEffect, useRef } from "react";
 
 import { availableCredit, canBidAt, recentLog } from "@/game/engine";
-import { formatMoney, formatMoneyCn, formatMult } from "@/game/format";
-import type { BidChoice, GameState, IntelAction } from "@/game/types";
+import { formatMoney, formatMoneyCn, formatMult, round100 } from "@/game/format";
+import type { BidChoice, GameState, InfoCardChoice, IntelAction } from "@/game/types";
+import { ROUND_TYPE_INFO } from "@/game/content";
 
 import { HUD } from "./HUD";
 import { ItemIcon } from "./ItemIcon";
+import InfoCardModal from "./InfoCardModal";
 
 export interface AuctionScreenProps {
   state: GameState;
@@ -17,6 +19,9 @@ export interface AuctionScreenProps {
   onNextRound?: () => void;
   onEndRun: () => void;
   onAiTick: () => void;
+  onOpenInfoCard?: () => void;
+  onChooseInfoCard?: (choice: InfoCardChoice) => void;
+  onCloseInfoCard?: () => void;
 }
 
 const BID_OPTIONS: Array<{ choice: Exclude<BidChoice, "exit">; label: string; step: number }> = [
@@ -31,10 +36,6 @@ const INTEL_OPTIONS: Array<{ action: IntelAction; label: string; detail: string 
   { action: "buyer", label: "买家情报", detail: "窥探偏好财力" },
   { action: "clue", label: "线索可信度", detail: "检验一条线索" },
 ];
-
-function round100(value: number): number {
-  return Math.round(value / 100) * 100;
-}
 
 export function AuctionScreen(props: AuctionScreenProps) {
   const { state } = props;
@@ -55,7 +56,7 @@ export function AuctionScreen(props: AuctionScreenProps) {
 
   useEffect(() => {
     if (state.phase !== "bidding" || state.deal || state.currentBidder === "player") return;
-    const timer = window.setTimeout(() => props.onAiTick(), 650);
+    const timer = window.setTimeout(() => props.onAiTick(), state.roundModifiers?.speedTickMs ?? 650);
     return () => window.clearTimeout(timer);
   }, [props.onAiTick, state.currentBidder, state.deal, state.phase]);
 
@@ -116,12 +117,20 @@ export function AuctionScreen(props: AuctionScreenProps) {
       <div className="stage" style={{ marginTop: 16 }}>
         {/* ---- 左：聚光灯舞台 ---- */}
         <div className="stage-main">
-          <section className="spotlight-card">
+          <section className={`spotlight-card${item.rarity === "legendary" ? " legendary" : ""}`}>
             <div className="kicker">
               LOT {state.itemIndex + 1} / {state.itemsThisRound.length} · 地下拍卖现场
             </div>
+            <span className={`round-type-badge ${state.roundType}`}>
+              {ROUND_TYPE_INFO[state.roundType]?.label ?? "标准场"}
+            </span>
+            <span className="round-type-tagline">{ROUND_TYPE_INFO[state.roundType]?.tagline}</span>
             <div className="spotlight-top" style={{ marginTop: 12 }}>
-              <ItemIcon category={item.category} size="lg" />
+              <ItemIcon
+                category={item.category}
+                size="lg"
+                className={item.rarity === "legendary" ? "legendary" : undefined}
+              />
               <div className="spotlight-identity">
                 <h2 className="spotlight-name">{item.name}</h2>
                 <div className="spotlight-sub">
@@ -129,6 +138,7 @@ export function AuctionScreen(props: AuctionScreenProps) {
                   {item.setInfo ? ` · 套装「${item.setInfo.setName}」${item.setInfo.partLabel}` : ""}
                 </div>
                 <div className="spotlight-tags">
+                  {item.rarity === "legendary" ? <span className="legendary-tag">✦ 传奇</span> : null}
                   {item.tags.map((tag) => (
                     <span className="tag tag-gold" key={tag}>
                       {tag}
@@ -142,10 +152,16 @@ export function AuctionScreen(props: AuctionScreenProps) {
             <div className="spotlight-meta">
               <div className="meta-cell">
                 <div className="kicker">行家估价</div>
-                <div className="meta-big gold num">
-                  ¥{formatMoney(item.estimateLow)} ~ ¥{formatMoney(item.estimateHigh)}
-                </div>
-                <div className="meta-small">中位数 ¥{formatMoney(item.estimateMedian)}</div>
+                {state.roundType === "night" ? (
+                  <div className="night-hint">🔒 估价保密（午夜夜场）</div>
+                ) : (
+                  <>
+                    <div className="meta-big gold num">
+                      ¥{formatMoney(item.estimateLow)} ~ ¥{formatMoney(item.estimateHigh)}
+                    </div>
+                    <div className="meta-small">中位数 ¥{formatMoney(item.estimateMedian)}</div>
+                  </>
+                )}
               </div>
               <div className="meta-cell">
                 <div className="kicker">当前叫价</div>
@@ -254,6 +270,17 @@ export function AuctionScreen(props: AuctionScreenProps) {
           <section className="panel">
             <div className="section-title">情报交易 · 每次 1 点</div>
             <div className="intel-bar">
+              <button
+                type="button"
+                className="intel-btn info-card-btn"
+                disabled={!canUseIntel}
+                onClick={() => props.onOpenInfoCard?.()}
+              >
+                🎴 信息卡
+                <span className="tiny" style={{ opacity: 0.72 }}>
+                  {" "}· 三选一情报
+                </span>
+              </button>
               {INTEL_OPTIONS.map((option) => (
                 <button
                   type="button"
@@ -370,6 +397,14 @@ export function AuctionScreen(props: AuctionScreenProps) {
             </button>
           </div>
         </div>
+      ) : null}
+
+      {state.infoCard ? (
+        <InfoCardModal
+          itemName={item.name}
+          onChoose={(c) => props.onChooseInfoCard?.(c)}
+          onClose={() => props.onCloseInfoCard?.()}
+        />
       ) : null}
     </main>
   );

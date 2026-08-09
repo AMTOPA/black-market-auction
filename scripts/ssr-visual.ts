@@ -40,8 +40,8 @@ const bidding = {
 };
 check("AuctionScreen", () => renderToStaticMarkup(h(require("../src/components/AuctionScreen").default, {
   state: bidding, onBid: () => {}, onIntel: () => {}, onDealContinue: () => {}, onAiTick: () => {}, onEndRun: () => {},
-})), ["spotlight-card", "item-icon lg", "bid-btn-lg standard", "bidder-row", "intel-btn", "clue-item", "event-banner", "commission-card"]);
-check("HUD", () => renderToStaticMarkup(h(require("../src/components/HUD").default, { state: bidding })), ["hud-stat", "hud-sep", "hud-ico", "rep-chip", "mode-badge"]);
+})), ["spotlight-card", "item-icon lg", "bid-btn-lg standard", "bidder-row", "intel-btn", "clue-item", "event-banner", "commission-card", "round-type-badge"]);
+check("HUD", () => renderToStaticMarkup(h(require("../src/components/HUD").default, { state: bidding })), ["hud-stat", "hud-sep", "hud-ico", "rep-chip", "mode-badge", "identity-chip"]);
 
 // 结算状态
 let s2 = bidding;
@@ -58,6 +58,7 @@ while (s2.phase !== "settlement" && guard < 2000) {
   s2 = playerBid(s2, "exit");
 }
 if (s2.phase !== "settlement") s2 = { ...s2, phase: "settlement", currentBidder: null };
+s2 = { ...s2, totals: { roundProfit: 1200, soldCount: 1, soldRevenue: 3000, storageFees: 200, interestPaid: 100, appraisalCosts: 0, pawnProceeds: 0, specialSales: 0, commissionReward: 0, interestEarned: 0 } };
 const s2b = {
   ...s2,
   settlementEvent: { id: "st-test", kind: "settlement" as const, title: "匿名委托", text: "藏家送来佣金。", outcome: "现金 +5,000" },
@@ -65,7 +66,7 @@ const s2b = {
 };
 check("SettlementScreen", () => renderToStaticMarkup(h(require("../src/components/SettlementScreen").default, {
   state: s2b, onAction: () => {}, onSpecial: () => {}, onNextRound: () => {}, onHome: () => {},
-})), ["stage-main", "stage-side", "item-card", "market-grid", "news-item", "event-banner", "commission-card"]);
+})), ["stage-main", "stage-side", "item-card", "market-grid", "news-item", "event-banner", "commission-card", "breakdown-card"]);
 
 // 结算后进入下一场（验证跨场不炸）
 let s3 = nextRound(s2);
